@@ -7,7 +7,7 @@ from websockets.datastructures import Headers
 
 class SteeringServer:
     def __init__(self):
-        print("[*] Ultimate Xbox Server Initialized.")
+        print("[*] Ultimate Xbox Server Initialized (Now with Paddle Shifters!).")
         self.gamepad = vg.VX360Gamepad()
         
     async def handler(self, websocket):
@@ -17,16 +17,13 @@ class SteeringServer:
                 data = json.loads(message)
                 
                 # --- JOYSTICKS & TRIGGERS ---
-                # Left Joystick (Gyro Steering)
                 steer = data.get('steering', 0.0)
                 self.gamepad.left_joystick_float(x_value_float=steer, y_value_float=0.0)
                 
-                # Right Joystick (Touch Camera Control)
                 rs_x = data.get('rs_x', 0.0)
                 rs_y = data.get('rs_y', 0.0)
                 self.gamepad.right_joystick_float(x_value_float=float(rs_x), y_value_float=float(rs_y))
                 
-                # Triggers (Gas & Brake)
                 throttle = data.get('throttle', 0)
                 self.gamepad.right_trigger_float(value_float=float(throttle))
                 brake = data.get('brake', 0)
@@ -36,6 +33,10 @@ class SteeringServer:
                 button_map = {
                     'handbrake': vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
                     'y_btn': vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
+                    'x_btn': vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
+                    'a_btn': vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
+                    'lb': vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,   # GEAR DOWN
+                    'rb': vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,  # GEAR UP
                     'view_btn': vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
                     'menu_btn': vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
                     'guide_btn': vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE,
@@ -45,7 +46,6 @@ class SteeringServer:
                     'dpad_right': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
                 }
                 
-                # Press or release every button based on the phone's data
                 for key, btn in button_map.items():
                     if data.get(key, 0):
                         self.gamepad.press_button(button=btn)

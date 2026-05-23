@@ -3,103 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Authentic Xbox HUD</title>
+    <title>Premium Racing HUD</title>
     <style>
-        * { box-sizing: border-box; touch-action: none; user-select: none; }
-        body { background-color: #050505; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap');
+
+        * { box-sizing: border-box; touch-action: none; user-select: none; margin: 0; padding: 0; }
+        body { 
+            background-color: #07080a; font-family: 'Rajdhani', sans-serif; 
+            overflow: hidden; width: 100vw; height: 100vh; 
+            background: linear-gradient(135deg, #151820 0%, #0b0c10 100%);
+        }
         
-        #portrait-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #107c10; color: white; z-index: 9999; text-align: center; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
+        #portrait-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #00ff66; color: #000; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
         @media screen and (orientation: portrait) { #portrait-warning { display: flex; } }
 
-        #controller-body { position: relative; width: 95vw; height: 95vh; background: radial-gradient(circle at 50% 10%, #2b2b2b, #111); border-radius: 120px 120px 150px 150px; box-shadow: inset 0 10px 20px rgba(255,255,255,0.05), inset 0 -10px 30px rgba(0,0,0,0.8), 0 20px 50px rgba(0,0,0,0.9); border-top: 2px solid #333; }
+        /* =========================================
+           HITBOX MANAGEMENT (MASSIVE BUT SEPARATED)
+           ========================================= */
+        
+        /* 1. Standard Fat Finger (For Pedals/Bumpers/Sticks) */
+        .fat-finger { position: relative; }
+        .fat-finger::before { 
+            content: ''; position: absolute; 
+            top: -25px; left: -25px; right: -25px; bottom: -25px; /* Expanded for easier clicking */
+            border-radius: inherit; z-index: 10; 
+        }
 
-        /* Triggers */
-        .trigger { position: absolute; top: -10px; width: 120px; height: 60px; background: linear-gradient(to bottom, #111, #0a0a0a); border-radius: 20px 20px 0 0; color: #444; font-weight: 900; display: flex; justify-content: center; align-items: flex-start; padding-top: 10px; box-shadow: inset 0 5px 10px rgba(255,255,255,0.1), 0 -5px 15px rgba(0,0,0,1); border-top: 2px solid #222; transition: all 0.1s; z-index: -1; }
-        .trigger.active { background: #000; transform: translateY(5px); color: #107c10; }
-        #lt { left: 80px; } #rt { right: 80px; }
+        /* 2. ABXY Custom Hitboxes (Prevents center overlap death) */
+        .abxy-btn { position: absolute; z-index: 20; }
+        .abxy-btn::before {
+            content: ''; position: absolute;
+            top: -10px; left: -10px; right: -10px; bottom: -10px; 
+            border-radius: 50%; z-index: 10;
+        }
 
-        /* Guide Button */
-        #guide-btn { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: radial-gradient(circle, #ddd, #999); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -3px 5px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #1a1a1a, 0 0 0 6px #333; transition: all 0.3s; }
-        #guide-btn.active { transform: translateX(-50%) scale(0.9); }
-        #guide-logo { color: #111; font-weight: 900; font-size: 32px; text-shadow: 0 1px 2px rgba(255,255,255,0.5); }
-        .connected #guide-btn { background: radial-gradient(circle, #fff, #b3b3b3); box-shadow: inset 0 -3px 5px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #1a1a1a, 0 0 0 6px #333, 0 0 30px rgba(255, 255, 255, 0.4); }
-        .connected #guide-logo { color: #107c10; text-shadow: 0 0 15px #107c10, 0 0 25px #5c9c38; }
+        /* =========================================
+           THE UNBREAKABLE FLEXBOX GRID
+           ========================================= */
+        #ui-grid {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 10px 4vw; z-index: 10;
+            pointer-events: none; /* Lets touches pass through empty space */
+        }
+        
+        #ui-grid * { pointer-events: auto; } /* Restores touch to actual buttons */
 
-        /* Start / Select */
-        .small-btn { position: absolute; top: 65px; width: 35px; height: 35px; background: #1a1a1a; border-radius: 50%; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.8), 0 5px 10px rgba(0,0,0,0.5); transition: transform 0.1s; }
-        .small-btn.active { transform: scale(0.85); box-shadow: inset 0 2px 4px rgba(0,0,0,0.9); }
-        #view-btn { left: calc(50% - 90px); } #menu-btn { right: calc(50% - 90px); }
+        #top-row { display: flex; justify-content: center; width: 100%; }
+        #middle-row { display: flex; justify-content: space-between; align-items: center; width: 100%; flex: 1; }
+        #bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding-bottom: 5px; }
+
+        /* Control clusters with tighter visual gaps so they fit on all screens */
+        .control-cluster { display: flex; align-items: center; gap: 3vw; }
+        .pedal-cluster { display: flex; align-items: flex-end; gap: 10px; }
+
+        /* =========================================
+           COMPONENT STYLES (Scaled for Zero Overlap)
+           ========================================= */
+
+        /* Telemetry Dashboard */
+        #telemetry-dash {
+            width: 260px; height: 45px; background: rgba(10, 12, 16, 0.7);
+            backdrop-filter: blur(10px); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 5px 15px rgba(0,0,0,0.5);
+            color: #00e5ff; font-weight: 700;
+        }
+        .dash-label { font-size: 10px; color: #556677; text-align: center; display: block;}
+        .dash-value { text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); font-size: 18px; display: block;}
+
+        /* Center Menu Buttons */
+        #center-console { display: flex; align-items: center; gap: 15px; }
+        
+        #guide-btn { 
+            width: 45px; height: 45px; background: #1a1d24; border-radius: 50%; 
+            display: flex; justify-content: center; align-items: center; 
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #0b0c10, 0 0 0 6px #1a1d24; 
+            transition: all 0.2s; flex-shrink: 0;
+        }
+        #guide-logo { color: #334455; font-weight: 900; font-size: 22px; }
+        .connected #guide-btn { box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #0b0c10, 0 0 0 6px #1a1d24, 0 0 30px rgba(0, 255, 102, 0.4); }
+        .connected #guide-logo { color: #00ff66; text-shadow: 0 0 20px #00ff66; }
+
+        .small-btn { 
+            width: 35px; height: 35px; background: #151820; border-radius: 50%; 
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.5), 0 5px 10px rgba(0,0,0,0.5); 
+            border: 1px solid #222; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+        }
+        .small-btn.active { transform: scale(0.9); box-shadow: inset 0 4px 8px rgba(0,0,0,0.8); }
+        .icon-bars { width: 12px; height: 8px; border-top: 2px solid #556677; border-bottom: 2px solid #556677; }
+        .icon-squares { width: 12px; height: 12px; border: 2px solid #556677; border-radius: 2px; }
 
         /* Joysticks */
-        .joystick-base { position: absolute; width: 140px; height: 140px; background: #111; border-radius: 50%; box-shadow: inset 0 5px 15px rgba(0,0,0,1), 0 2px 5px rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; }
-        .joystick-cap { width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #3a3a3a, #1a1a1a); box-shadow: inset 0 0 20px rgba(0,0,0,1), -5px -5px 15px rgba(255,255,255,0.05), 5px 10px 20px rgba(0,0,0,0.8); border: 4px solid #111; position: relative; transition: transform 0.05s ease-out; }
-        .joystick-cap::after { content: ''; position: absolute; top: 15%; left: 15%; width: 70%; height: 70%; border-radius: 50%; background: #151515; box-shadow: inset 0 5px 10px rgba(0,0,0,0.8); }
-        #left-stick { top: 25%; left: 8%; } #right-stick { bottom: 15%; right: 28%; z-index: 10; }
-
-        /* D-Pad with interactive hitboxes */
-        #dpad { position: absolute; bottom: 15%; left: 28%; width: 120px; height: 120px; }
-        .dpad-part { position: absolute; background: #1a1a1a; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), inset 0 -2px 5px rgba(0,0,0,0.8), 0 5px 10px rgba(0,0,0,0.5); pointer-events: none; }
-        .dpad-v { top: 0; left: 33.3%; width: 33.3%; height: 100%; border-radius: 5px; }
-        .dpad-h { top: 33.3%; left: 0; width: 100%; height: 33.3%; border-radius: 5px; }
-        .dpad-hitbox { position: absolute; width: 33.3%; height: 33.3%; z-index: 5; border-radius: 5px; }
-        .dpad-hitbox.active { background: rgba(255,255,255,0.2); }
-        #dpad-up { top: 0; left: 33.3%; } #dpad-down { bottom: 0; left: 33.3%; } #dpad-left { top: 33.3%; left: 0; } #dpad-right { top: 33.3%; right: 0; }
+        .joystick-base { width: 110px; height: 110px; background: #0b0c10; border-radius: 50%; box-shadow: inset 0 10px 20px rgba(0,0,0,1), 0 2px 5px rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; flex-shrink: 0;}
+        .joystick-cap { width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #2a303d, #11141a); box-shadow: inset 0 0 20px rgba(0,0,0,0.5), -4px -4px 10px rgba(255,255,255,0.05), 8px 15px 25px rgba(0,0,0,0.9); border: 2px solid #1a1d24; position: relative; }
+        .joystick-cap::after { content: ''; position: absolute; top: 20%; left: 20%; width: 60%; height: 60%; border-radius: 50%; background: #0b0c10; box-shadow: inset 0 5px 15px rgba(0,0,0,0.9), 0 2px 2px rgba(255,255,255,0.05); }
 
         /* ABXY Cluster */
-        #abxy { position: absolute; top: 25%; right: 8%; width: 160px; height: 160px; }
-        .abxy-btn { position: absolute; width: 55px; height: 55px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #2a2a2a, #050505); font-weight: 900; font-size: 26px; display: flex; justify-content: center; align-items: center; box-shadow: inset -2px -2px 5px rgba(0,0,0,0.8), inset 2px 2px 5px rgba(255,255,255,0.1), 0 10px 15px rgba(0,0,0,0.8); transition: transform 0.1s, box-shadow 0.1s; }
-        .abxy-btn.active { transform: scale(0.9) translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.8); }
-        #btnY { top: 0; left: 50%; transform: translateX(-50%); color: #f3c22d; text-shadow: 0 0 10px #f3c22d; } #btnY.active { transform: translateX(-50%) scale(0.9) translateY(2px); }
-        #btnB { right: 0; top: 50%; transform: translateY(-50%); color: #d13037; text-shadow: 0 0 10px #d13037; } #btnB.active { transform: translateY(-50%) scale(0.9) translateY(2px); }
-        #btnA { bottom: 0; left: 50%; transform: translateX(-50%); color: #5c9c38; text-shadow: 0 0 10px #5c9c38; } #btnA.active { transform: translateX(-50%) scale(0.9) translateY(2px); }
-        #btnX { left: 0; top: 50%; transform: translateY(-50%); color: #3262a8; text-shadow: 0 0 10px #3262a8; } #btnX.active { transform: translateY(-50%) scale(0.9) translateY(2px); }
+        #abxy { width: 120px; height: 120px; position: relative; flex-shrink: 0; }
+        .abxy-btn { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: #1a1d24; font-weight: 900; font-size: 20px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 8px 15px rgba(0,0,0,0.8); border: 1px solid #2a303d; transition: all 0.1s; }
+        
+        #btnY { top: 0; left: 50%; transform: translateX(-50%); color: #ffcc00; } 
+        #btnY.active { transform: translateX(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(255, 204, 0, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #ffcc00; }
+        
+        #btnB { right: 0; top: 50%; transform: translateY(-50%); color: #ff3333; } 
+        #btnB.active { transform: translateY(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(255, 51, 51, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #ff3333; }
+        
+        #btnA { bottom: 0; left: 50%; transform: translateX(-50%); color: #00ff66; } 
+        #btnA.active { transform: translateX(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(0, 255, 102, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #00ff66; }
+        
+        #btnX { left: 0; top: 50%; transform: translateY(-50%); color: #00ccff; } 
+        #btnX.active { transform: translateY(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(0, 204, 255, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #00ccff; }
 
-        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 5, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; }
-        #initBtn { padding: 20px 60px; background: #107c10; border: none; border-radius: 30px; color: white; font-size: 24px; font-weight: bold; letter-spacing: 2px; cursor: pointer; box-shadow: 0 10px 30px rgba(16, 124, 16, 0.4); text-transform: uppercase; }
-        #debug-log { position: absolute; top: 10px; left: 10px; color: yellow; font-size: 10px; pointer-events: none; z-index: 999; }
+        /* D-Pad */
+        #dpad { width: 100px; height: 100px; position: relative; flex-shrink: 0; } 
+        .dpad-part { position: absolute; background: #1a1d24; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), inset 0 -5px 10px rgba(0,0,0,0.8), 0 8px 15px rgba(0,0,0,0.6); pointer-events: none; border: 1px solid #2a303d; }
+        .dpad-v { top: 0; left: 33.3%; width: 33.3%; height: 100%; border-radius: 8px; }
+        .dpad-h { top: 33.3%; left: 0; width: 100%; height: 33.3%; border-radius: 8px; }
+        
+        /* D-Pad Hitboxes & Glow */
+        .dpad-hitbox { position: absolute; width: 38%; height: 38%; z-index: 30; border-radius: 8px; transition: all 0.1s; }
+        .dpad-hitbox.active { background: rgba(0, 255, 102, 0.5); box-shadow: 0 0 20px rgba(0, 255, 102, 0.8); }
+        #dpad-up { top: -5px; left: 31%; } #dpad-down { bottom: -5px; left: 31%; } 
+        #dpad-left { top: 31%; left: -5px; } #dpad-right { top: 31%; right: -5px; }
+
+        /* Pedals & Shifters */
+        .bumper { width: 75px; height: 45px; background: #1f232d; border-radius: 8px; color: #778899; font-weight: 700; font-size: 14px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), 0 5px 15px rgba(0,0,0,0.6); border: 1px solid #2a303d; transition: all 0.1s; z-index: 20;}
+        .bumper.active { background: #0b0c10; color: #fff; box-shadow: inset 0 5px 10px rgba(0,0,0,0.8); border-color: #111; transform: translateY(4px); }
+
+        .trigger { width: 90px; height: 65px; background: linear-gradient(to top, #1a1d24, #0b0c10); border-radius: 8px 8px 25px 25px; color: #556677; font-weight: 900; font-size: 18px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 12px; box-shadow: inset 0 -2px 2px rgba(255,255,255,0.1), 0 10px 20px rgba(0,0,0,0.8); border-bottom: 2px solid #334455; transition: all 0.1s; z-index: 20;}
+        .trigger.active { background: #0b0c10; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.8); box-shadow: inset 0 -5px 10px rgba(0,0,0,0.9), 0 2px 5px rgba(0,0,0,0.5); transform: translateY(4px); }
+
+        /* Connection Overlay */
+        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 5, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(5px); }
+        #initBtn { padding: 15px 50px; background: #00ff66; border: none; border-radius: 5px; color: #000; font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 900; letter-spacing: 4px; cursor: pointer; box-shadow: 0 0 40px rgba(0, 255, 102, 0.4); text-transform: uppercase; transition: transform 0.2s; }
+        #initBtn:active { transform: scale(0.95); }
     </style>
 </head>
-<body>
+<body id="controller-body">
 
-<div id="portrait-warning">PLEASE ROTATE PHONE</div>
-<div id="debug-log"></div>
+<div id="portrait-warning">ROTATE DEVICE</div>
+<div id="initOverlay"><button id="initBtn">IGNITION</button></div>
 
-<div id="initOverlay"><button id="initBtn">POWER ON</button></div>
-
-<div id="controller-body">
-    <div class="trigger" id="lt">LT</div>
-    <div class="trigger" id="rt">RT</div>
-
-    <div id="guide-btn"><div id="guide-logo">X</div></div>
-    <div class="small-btn" id="view-btn"></div>
-    <div class="small-btn" id="menu-btn"></div>
+<div id="ui-grid">
     
-    <div class="joystick-base" id="left-stick"><div class="joystick-cap" id="left-stick-cap"></div></div>
-
-    <div id="dpad">
-        <div class="dpad-part dpad-v"></div>
-        <div class="dpad-part dpad-h"></div>
-        <div class="dpad-hitbox" id="dpad-up"></div>
-        <div class="dpad-hitbox" id="dpad-down"></div>
-        <div class="dpad-hitbox" id="dpad-left"></div>
-        <div class="dpad-hitbox" id="dpad-right"></div>
+    <div id="top-row">
+        <div id="telemetry-dash">
+            <div>
+                <span class="dash-label">STATUS</span>
+                <span class="dash-value" id="status-txt" style="color:#ff3333;">OFFLINE</span>
+            </div>
+            <div>
+                <span class="dash-label">STEERING</span>
+                <span class="dash-value" id="steerVal">0.0°</span>
+            </div>
+        </div>
     </div>
 
-    <div class="joystick-base" id="right-stick"><div class="joystick-cap" id="right-stick-cap" style="transition: none;"></div></div>
+    <div id="middle-row">
+        <div class="control-cluster">
+            <div class="joystick-base fat-finger" id="left-stick">
+                <div class="joystick-cap" id="left-stick-cap" style="transition: transform 0.05s ease-out;"></div>
+            </div>
+            
+            <div id="dpad" class="fat-finger">
+                <div class="dpad-part dpad-v"></div>
+                <div class="dpad-part dpad-h"></div>
+                <div class="dpad-hitbox" id="dpad-up"></div>
+                <div class="dpad-hitbox" id="dpad-down"></div>
+                <div class="dpad-hitbox" id="dpad-left"></div>
+                <div class="dpad-hitbox" id="dpad-right"></div>
+            </div>
+        </div>
 
-    <div id="abxy">
-        <div class="abxy-btn" id="btnY">Y</div>
-        <div class="abxy-btn" id="btnB">B</div>
-        <div class="abxy-btn" id="btnA">A</div>
-        <div class="abxy-btn" id="btnX">X</div>
+        <div id="center-console">
+            <div class="small-btn fat-finger" id="view-btn"><div class="icon-squares"></div></div>
+            <div id="guide-btn" class="fat-finger"><div id="guide-logo">X</div></div>
+            <div class="small-btn fat-finger" id="menu-btn"><div class="icon-bars"></div></div>
+        </div>
+
+        <div class="control-cluster">
+            <div class="joystick-base fat-finger" id="right-stick">
+                <div class="joystick-cap" id="right-stick-cap"></div>
+            </div>
+
+            <div id="abxy">
+                <div class="abxy-btn" id="btnY">Y</div>
+                <div class="abxy-btn" id="btnB">B</div>
+                <div class="abxy-btn" id="btnA">A</div>
+                <div class="abxy-btn" id="btnX">X</div>
+            </div>
+        </div>
     </div>
+
+    <div id="bottom-row">
+        <div class="pedal-cluster">
+            <div class="trigger fat-finger" id="lt">BRAKE</div>
+            <div class="bumper fat-finger" id="rb">GEAR +</div>
+        </div>
+        
+        <div class="pedal-cluster">
+            <div class="bumper fat-finger" id="lb">GEAR -</div>
+            <div class="trigger fat-finger" id="rt">GAS</div>
+        </div>
+    </div>
+
 </div>
 
 <script>
     let ws; 
     let inputState = { 
         steering: 0.0, throttle: 0, brake: 0, handbrake: 0, 
-        y_btn: 0, dpad_up: 0, dpad_down: 0, dpad_left: 0, dpad_right: 0,
+        y_btn: 0, x_btn: 0, a_btn: 0, lb: 0, rb: 0, 
+        dpad_up: 0, dpad_down: 0, dpad_left: 0, dpad_right: 0,
         view_btn: 0, menu_btn: 0, guide_btn: 0, rs_x: 0.0, rs_y: 0.0
     };
     let isConnected = false;
@@ -122,97 +238,80 @@
             let protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
             let wsUrl = protocol + window.location.host + "/ws"; 
             ws = new WebSocket(wsUrl);
-            const body = document.getElementById('controller-body');
+            const statusTxt = document.getElementById('status-txt');
             
-            ws.onopen = () => { isConnected = true; body.classList.add('connected'); };
-            ws.onclose = () => { isConnected = false; body.classList.remove('connected'); setTimeout(connectWebSocket, 3000); };
+            ws.onopen = () => { 
+                isConnected = true; 
+                document.getElementById('guide-btn').parentElement.classList.add('connected'); 
+                statusTxt.innerText = "ONLINE"; statusTxt.style.color = "#00ff66";
+            };
+            ws.onclose = () => { 
+                isConnected = false; 
+                document.getElementById('guide-btn').parentElement.classList.remove('connected'); 
+                statusTxt.innerText = "OFFLINE"; statusTxt.style.color = "#ff3333";
+                setTimeout(connectWebSocket, 3000); 
+            };
         } catch (err) {}
     }
 
     function startSensors() {
         const leftStickCap = document.getElementById('left-stick-cap');
+        const steerDash = document.getElementById('steerVal');
 
-        // --- HYPER SENSITIVE GYRO (LEFT STICK) ---
         window.addEventListener('deviceorientation', (event) => {
             if (!event.beta) return;
             let tilt = event.beta; 
             if (window.orientation === -90) tilt = -tilt;
             
-            // THE SENSITIVITY UPGRADE: Turned 45 down to 25. Sharp turns take way less physical tilt!
-            let normalizedSteering = tilt / 25; 
-            normalizedSteering = Math.max(-1.0, Math.min(1.0, normalizedSteering));
+            let maxTiltAngle = 18.0; 
+            let rawSteering = tilt / maxTiltAngle; 
+            rawSteering = Math.max(-1.0, Math.min(1.0, rawSteering));
             
-            inputState.steering = normalizedSteering;
-            let pixelOffset = normalizedSteering * 30; 
+            let curvePower = 1.5;
+            let finalSteering = Math.sign(rawSteering) * Math.pow(Math.abs(rawSteering), curvePower);
+            
+            inputState.steering = finalSteering;
+            
+            let displayAngle = (finalSteering * 90).toFixed(1);
+            steerDash.innerText = displayAngle + "°";
+
+            let pixelOffset = finalSteering * 20; 
             if(leftStickCap) leftStickCap.style.transform = `translateX(${pixelOffset}px)`;
         });
 
-        // --- INTERACTIVE RIGHT STICK (CAMERA CONTROL) ---
         const rightStick = document.getElementById('right-stick');
         const rightCap = document.getElementById('right-stick-cap');
-        let rsRadius = 40; // Max drag distance
-        let rsRect = null;
+        let rsRadius = 25; let rsRect = null;
 
         rightStick.addEventListener('touchstart', (e) => {
             e.preventDefault(); rsRect = rightStick.getBoundingClientRect(); updateRightStick(e.touches[0]);
         }, {passive: false});
-        
-        rightStick.addEventListener('touchmove', (e) => {
-            e.preventDefault(); updateRightStick(e.touches[0]);
-        }, {passive: false});
-        
+        rightStick.addEventListener('touchmove', (e) => { e.preventDefault(); updateRightStick(e.touches[0]); }, {passive: false});
         rightStick.addEventListener('touchend', (e) => {
-            e.preventDefault(); 
-            inputState.rs_x = 0; inputState.rs_y = 0; 
-            rightCap.style.transform = `translate(0px, 0px)`;
+            e.preventDefault(); inputState.rs_x = 0; inputState.rs_y = 0; rightCap.style.transform = `translate(0px, 0px)`;
         });
 
         function updateRightStick(touch) {
-            let cx = rsRect.left + rsRect.width / 2;
-            let cy = rsRect.top + rsRect.height / 2;
-            let dx = touch.clientX - cx;
-            let dy = touch.clientY - cy;
+            let cx = rsRect.left + rsRect.width / 2; let cy = rsRect.top + rsRect.height / 2;
+            let dx = touch.clientX - cx; let dy = touch.clientY - cy;
             let distance = Math.sqrt(dx*dx + dy*dy);
-            
-            // Cap it at the edge of the physical circle
-            if (distance > rsRadius) {
-                dx = (dx / distance) * rsRadius;
-                dy = (dy / distance) * rsRadius;
-            }
+            if (distance > rsRadius) { dx = (dx / distance) * rsRadius; dy = (dy / distance) * rsRadius; }
             rightCap.style.transform = `translate(${dx}px, ${dy}px)`;
-            
-            inputState.rs_x = dx / rsRadius;
-            inputState.rs_y = -(dy / rsRadius); // Invert Y axis for standard gamepad math
+            inputState.rs_x = dx / rsRadius; inputState.rs_y = -(dy / rsRadius); 
         }
 
-        // --- UNIVERSAL BUTTON BINDINGS ---
         const bindButton = (id, key) => {
             const el = document.getElementById(id);
             if(!el) return;
-            el.addEventListener('touchstart', (e) => { 
-                e.preventDefault(); inputState[key] = 1; el.classList.add('active');
-            }, {passive: false});
-            el.addEventListener('touchend', (e) => { 
-                e.preventDefault(); inputState[key] = 0; el.classList.remove('active');
-            }, {passive: false});
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); inputState[key] = 1; el.classList.add('active'); }, {passive: false});
+            el.addEventListener('touchend', (e) => { e.preventDefault(); inputState[key] = 0; el.classList.remove('active'); }, {passive: false});
         };
 
-        // Primary Driving Controls
-        bindButton('btnA', 'throttle'); bindButton('rt', 'throttle');
-        bindButton('btnX', 'brake');    bindButton('lt', 'brake');
-        bindButton('btnB', 'handbrake'); 
-        
-        // Auxiliary Buttons
-        bindButton('btnY', 'y_btn');
-        bindButton('view-btn', 'view_btn');
-        bindButton('menu-btn', 'menu_btn');
-        bindButton('guide-btn', 'guide_btn');
-        
-        // D-Pad Directions
-        bindButton('dpad-up', 'dpad_up');
-        bindButton('dpad-down', 'dpad_down');
-        bindButton('dpad-left', 'dpad_left');
-        bindButton('dpad-right', 'dpad_right');
+        bindButton('rt', 'throttle'); bindButton('lt', 'brake');
+        bindButton('lb', 'lb'); bindButton('rb', 'rb');
+        bindButton('btnA', 'a_btn'); bindButton('btnX', 'x_btn'); bindButton('btnB', 'handbrake'); bindButton('btnY', 'y_btn');
+        bindButton('view-btn', 'view_btn'); bindButton('menu-btn', 'menu_btn'); bindButton('guide-btn', 'guide_btn');
+        bindButton('dpad-up', 'dpad_up'); bindButton('dpad-down', 'dpad_down'); bindButton('dpad-left', 'dpad_left'); bindButton('dpad-right', 'dpad_right');
 
         setInterval(() => {
             if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
