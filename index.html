@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Authentic Xbox HUD</title>
+    <style>
+        * { box-sizing: border-box; touch-action: none; user-select: none; }
+        body { background-color: #050505; font-family: 'Segoe UI', sans-serif; margin: 0; overflow: hidden; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        #portrait-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #107c10; color: white; z-index: 9999; text-align: center; justify-content: center; align-items: center; font-size: 24px; font-weight: bold; letter-spacing: 2px; }
+        @media screen and (orientation: portrait) { #portrait-warning { display: flex; } }
+
+        #controller-body { position: relative; width: 95vw; height: 95vh; background: radial-gradient(circle at 50% 10%, #2b2b2b, #111); border-radius: 120px 120px 150px 150px; box-shadow: inset 0 10px 20px rgba(255,255,255,0.05), inset 0 -10px 30px rgba(0,0,0,0.8), 0 20px 50px rgba(0,0,0,0.9); border-top: 2px solid #333; }
+
+        /* Triggers */
+        .trigger { position: absolute; top: -10px; width: 120px; height: 60px; background: linear-gradient(to bottom, #111, #0a0a0a); border-radius: 20px 20px 0 0; color: #444; font-weight: 900; display: flex; justify-content: center; align-items: flex-start; padding-top: 10px; box-shadow: inset 0 5px 10px rgba(255,255,255,0.1), 0 -5px 15px rgba(0,0,0,1); border-top: 2px solid #222; transition: all 0.1s; z-index: -1; }
+        .trigger.active { background: #000; transform: translateY(5px); color: #107c10; }
+        #lt { left: 80px; } #rt { right: 80px; }
+
+        /* Guide Button */
+        #guide-btn { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: radial-gradient(circle, #ddd, #999); border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 -3px 5px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #1a1a1a, 0 0 0 6px #333; transition: all 0.3s; }
+        #guide-btn.active { transform: translateX(-50%) scale(0.9); }
+        #guide-logo { color: #111; font-weight: 900; font-size: 32px; text-shadow: 0 1px 2px rgba(255,255,255,0.5); }
+        .connected #guide-btn { background: radial-gradient(circle, #fff, #b3b3b3); box-shadow: inset 0 -3px 5px rgba(0,0,0,0.5), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #1a1a1a, 0 0 0 6px #333, 0 0 30px rgba(255, 255, 255, 0.4); }
+        .connected #guide-logo { color: #107c10; text-shadow: 0 0 15px #107c10, 0 0 25px #5c9c38; }
+
+        /* Start / Select */
+        .small-btn { position: absolute; top: 65px; width: 35px; height: 35px; background: #1a1a1a; border-radius: 50%; box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), inset 0 -2px 4px rgba(0,0,0,0.8), 0 5px 10px rgba(0,0,0,0.5); transition: transform 0.1s; }
+        .small-btn.active { transform: scale(0.85); box-shadow: inset 0 2px 4px rgba(0,0,0,0.9); }
+        #view-btn { left: calc(50% - 90px); } #menu-btn { right: calc(50% - 90px); }
+
+        /* Joysticks */
+        .joystick-base { position: absolute; width: 140px; height: 140px; background: #111; border-radius: 50%; box-shadow: inset 0 5px 15px rgba(0,0,0,1), 0 2px 5px rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; }
+        .joystick-cap { width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #3a3a3a, #1a1a1a); box-shadow: inset 0 0 20px rgba(0,0,0,1), -5px -5px 15px rgba(255,255,255,0.05), 5px 10px 20px rgba(0,0,0,0.8); border: 4px solid #111; position: relative; transition: transform 0.05s ease-out; }
+        .joystick-cap::after { content: ''; position: absolute; top: 15%; left: 15%; width: 70%; height: 70%; border-radius: 50%; background: #151515; box-shadow: inset 0 5px 10px rgba(0,0,0,0.8); }
+        #left-stick { top: 25%; left: 8%; } #right-stick { bottom: 15%; right: 28%; z-index: 10; }
+
+        /* D-Pad with interactive hitboxes */
+        #dpad { position: absolute; bottom: 15%; left: 28%; width: 120px; height: 120px; }
+        .dpad-part { position: absolute; background: #1a1a1a; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), inset 0 -2px 5px rgba(0,0,0,0.8), 0 5px 10px rgba(0,0,0,0.5); pointer-events: none; }
+        .dpad-v { top: 0; left: 33.3%; width: 33.3%; height: 100%; border-radius: 5px; }
+        .dpad-h { top: 33.3%; left: 0; width: 100%; height: 33.3%; border-radius: 5px; }
+        .dpad-hitbox { position: absolute; width: 33.3%; height: 33.3%; z-index: 5; border-radius: 5px; }
+        .dpad-hitbox.active { background: rgba(255,255,255,0.2); }
+        #dpad-up { top: 0; left: 33.3%; } #dpad-down { bottom: 0; left: 33.3%; } #dpad-left { top: 33.3%; left: 0; } #dpad-right { top: 33.3%; right: 0; }
+
+        /* ABXY Cluster */
+        #abxy { position: absolute; top: 25%; right: 8%; width: 160px; height: 160px; }
+        .abxy-btn { position: absolute; width: 55px; height: 55px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #2a2a2a, #050505); font-weight: 900; font-size: 26px; display: flex; justify-content: center; align-items: center; box-shadow: inset -2px -2px 5px rgba(0,0,0,0.8), inset 2px 2px 5px rgba(255,255,255,0.1), 0 10px 15px rgba(0,0,0,0.8); transition: transform 0.1s, box-shadow 0.1s; }
+        .abxy-btn.active { transform: scale(0.9) translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.8); }
+        #btnY { top: 0; left: 50%; transform: translateX(-50%); color: #f3c22d; text-shadow: 0 0 10px #f3c22d; } #btnY.active { transform: translateX(-50%) scale(0.9) translateY(2px); }
+        #btnB { right: 0; top: 50%; transform: translateY(-50%); color: #d13037; text-shadow: 0 0 10px #d13037; } #btnB.active { transform: translateY(-50%) scale(0.9) translateY(2px); }
+        #btnA { bottom: 0; left: 50%; transform: translateX(-50%); color: #5c9c38; text-shadow: 0 0 10px #5c9c38; } #btnA.active { transform: translateX(-50%) scale(0.9) translateY(2px); }
+        #btnX { left: 0; top: 50%; transform: translateY(-50%); color: #3262a8; text-shadow: 0 0 10px #3262a8; } #btnX.active { transform: translateY(-50%) scale(0.9) translateY(2px); }
+
+        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 5, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; }
+        #initBtn { padding: 20px 60px; background: #107c10; border: none; border-radius: 30px; color: white; font-size: 24px; font-weight: bold; letter-spacing: 2px; cursor: pointer; box-shadow: 0 10px 30px rgba(16, 124, 16, 0.4); text-transform: uppercase; }
+        #debug-log { position: absolute; top: 10px; left: 10px; color: yellow; font-size: 10px; pointer-events: none; z-index: 999; }
+    </style>
+</head>
+<body>
+
+<div id="portrait-warning">PLEASE ROTATE PHONE</div>
+<div id="debug-log"></div>
+
+<div id="initOverlay"><button id="initBtn">POWER ON</button></div>
+
+<div id="controller-body">
+    <div class="trigger" id="lt">LT</div>
+    <div class="trigger" id="rt">RT</div>
+
+    <div id="guide-btn"><div id="guide-logo">X</div></div>
+    <div class="small-btn" id="view-btn"></div>
+    <div class="small-btn" id="menu-btn"></div>
+    
+    <div class="joystick-base" id="left-stick"><div class="joystick-cap" id="left-stick-cap"></div></div>
+
+    <div id="dpad">
+        <div class="dpad-part dpad-v"></div>
+        <div class="dpad-part dpad-h"></div>
+        <div class="dpad-hitbox" id="dpad-up"></div>
+        <div class="dpad-hitbox" id="dpad-down"></div>
+        <div class="dpad-hitbox" id="dpad-left"></div>
+        <div class="dpad-hitbox" id="dpad-right"></div>
+    </div>
+
+    <div class="joystick-base" id="right-stick"><div class="joystick-cap" id="right-stick-cap" style="transition: none;"></div></div>
+
+    <div id="abxy">
+        <div class="abxy-btn" id="btnY">Y</div>
+        <div class="abxy-btn" id="btnB">B</div>
+        <div class="abxy-btn" id="btnA">A</div>
+        <div class="abxy-btn" id="btnX">X</div>
+    </div>
+</div>
+
+<script>
+    let ws; 
+    let inputState = { 
+        steering: 0.0, throttle: 0, brake: 0, handbrake: 0, 
+        y_btn: 0, dpad_up: 0, dpad_down: 0, dpad_left: 0, dpad_right: 0,
+        view_btn: 0, menu_btn: 0, guide_btn: 0, rs_x: 0.0, rs_y: 0.0
+    };
+    let isConnected = false;
+
+    document.getElementById('initBtn').addEventListener('click', async () => {
+        document.getElementById('initOverlay').style.display = 'none';
+        try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (err) {}
+        try {
+            if (typeof window.DeviceOrientationEvent !== 'undefined' && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
+                window.DeviceOrientationEvent.requestPermission().then(permissionState => {
+                    if (permissionState === 'granted') startSensors();
+                }).catch(e => { startSensors(); });
+            } else { startSensors(); }
+        } catch (err) { startSensors(); }
+        connectWebSocket();
+    });
+
+    function connectWebSocket() {
+        try {
+            let protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+            let wsUrl = protocol + window.location.host + "/ws"; 
+            ws = new WebSocket(wsUrl);
+            const body = document.getElementById('controller-body');
+            
+            ws.onopen = () => { isConnected = true; body.classList.add('connected'); };
+            ws.onclose = () => { isConnected = false; body.classList.remove('connected'); setTimeout(connectWebSocket, 3000); };
+        } catch (err) {}
+    }
+
+    function startSensors() {
+        const leftStickCap = document.getElementById('left-stick-cap');
+
+        // --- HYPER SENSITIVE GYRO (LEFT STICK) ---
+        window.addEventListener('deviceorientation', (event) => {
+            if (!event.beta) return;
+            let tilt = event.beta; 
+            if (window.orientation === -90) tilt = -tilt;
+            
+            // THE SENSITIVITY UPGRADE: Turned 45 down to 25. Sharp turns take way less physical tilt!
+            let normalizedSteering = tilt / 25; 
+            normalizedSteering = Math.max(-1.0, Math.min(1.0, normalizedSteering));
+            
+            inputState.steering = normalizedSteering;
+            let pixelOffset = normalizedSteering * 30; 
+            if(leftStickCap) leftStickCap.style.transform = `translateX(${pixelOffset}px)`;
+        });
+
+        // --- INTERACTIVE RIGHT STICK (CAMERA CONTROL) ---
+        const rightStick = document.getElementById('right-stick');
+        const rightCap = document.getElementById('right-stick-cap');
+        let rsRadius = 40; // Max drag distance
+        let rsRect = null;
+
+        rightStick.addEventListener('touchstart', (e) => {
+            e.preventDefault(); rsRect = rightStick.getBoundingClientRect(); updateRightStick(e.touches[0]);
+        }, {passive: false});
+        
+        rightStick.addEventListener('touchmove', (e) => {
+            e.preventDefault(); updateRightStick(e.touches[0]);
+        }, {passive: false});
+        
+        rightStick.addEventListener('touchend', (e) => {
+            e.preventDefault(); 
+            inputState.rs_x = 0; inputState.rs_y = 0; 
+            rightCap.style.transform = `translate(0px, 0px)`;
+        });
+
+        function updateRightStick(touch) {
+            let cx = rsRect.left + rsRect.width / 2;
+            let cy = rsRect.top + rsRect.height / 2;
+            let dx = touch.clientX - cx;
+            let dy = touch.clientY - cy;
+            let distance = Math.sqrt(dx*dx + dy*dy);
+            
+            // Cap it at the edge of the physical circle
+            if (distance > rsRadius) {
+                dx = (dx / distance) * rsRadius;
+                dy = (dy / distance) * rsRadius;
+            }
+            rightCap.style.transform = `translate(${dx}px, ${dy}px)`;
+            
+            inputState.rs_x = dx / rsRadius;
+            inputState.rs_y = -(dy / rsRadius); // Invert Y axis for standard gamepad math
+        }
+
+        // --- UNIVERSAL BUTTON BINDINGS ---
+        const bindButton = (id, key) => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.addEventListener('touchstart', (e) => { 
+                e.preventDefault(); inputState[key] = 1; el.classList.add('active');
+            }, {passive: false});
+            el.addEventListener('touchend', (e) => { 
+                e.preventDefault(); inputState[key] = 0; el.classList.remove('active');
+            }, {passive: false});
+        };
+
+        // Primary Driving Controls
+        bindButton('btnA', 'throttle'); bindButton('rt', 'throttle');
+        bindButton('btnX', 'brake');    bindButton('lt', 'brake');
+        bindButton('btnB', 'handbrake'); 
+        
+        // Auxiliary Buttons
+        bindButton('btnY', 'y_btn');
+        bindButton('view-btn', 'view_btn');
+        bindButton('menu-btn', 'menu_btn');
+        bindButton('guide-btn', 'guide_btn');
+        
+        // D-Pad Directions
+        bindButton('dpad-up', 'dpad_up');
+        bindButton('dpad-down', 'dpad_down');
+        bindButton('dpad-left', 'dpad_left');
+        bindButton('dpad-right', 'dpad_right');
+
+        setInterval(() => {
+            if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(inputState));
+            }
+        }, 16); 
+    }
+</script>
+</body>
+</html>

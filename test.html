@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body style="font-size: 40px; font-family: sans-serif;">
+    <button onclick="test()" style="font-size: 50px; padding: 20px;">TEST CONNECTION</button>
+    <div id="log" style="margin-top: 20px;">Waiting to test...</div>
+
+    <script>
+        function test() {
+            let log = document.getElementById("log");
+            log.innerHTML = "Attempting to connect to 10.43.133.241:5000...<br>";
+            
+            try {
+                // Using the exact wired IP we confirmed earlier
+                let ws = new WebSocket("ws://10.43.133.241:5000");
+                
+                ws.onopen = function() { log.innerHTML += "<span style='color:green'>SUCCESS! We are in!</span>"; };
+                ws.onerror = function(e) { log.innerHTML += "<span style='color:red'>ERROR: The browser blocked it.</span>"; };
+                ws.onclose = function(e) { log.innerHTML += "Connection Closed."; };
+            } catch(e) {
+                log.innerHTML += "<span style='color:red'>CRASH: " + e.message + "</span>";
+            }
+        }
+    </script>
+</body>
+</html>
