@@ -9,31 +9,31 @@
 
         * { box-sizing: border-box; touch-action: none; user-select: none; margin: 0; padding: 0; }
         body { 
-            background-color: #07080a; font-family: 'Rajdhani', sans-serif; 
+            background-color: #040507; font-family: 'Rajdhani', sans-serif; 
             overflow: hidden; width: 100vw; height: 100vh; 
-            background: linear-gradient(135deg, #151820 0%, #0b0c10 100%);
+            background: linear-gradient(135deg, #0d111a 0%, #040507 100%);
         }
         
-        #portrait-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #00ff66; color: #000; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
+        #portrait-warning { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #00e676; color: #000; z-index: 9999; flex-direction: column; justify-content: center; align-items: center; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
         @media screen and (orientation: portrait) { #portrait-warning { display: flex; } }
 
         /* =========================================
            HITBOX MANAGEMENT (MASSIVE BUT SEPARATED)
            ========================================= */
         
-        /* 1. Standard Fat Finger (For Pedals/Bumpers/Sticks) */
+        /* 1. Super Fat Finger (Expanded to 35px for massive pedal/bumper catch areas) */
         .fat-finger { position: relative; }
         .fat-finger::before { 
             content: ''; position: absolute; 
-            top: -25px; left: -25px; right: -25px; bottom: -25px; /* Expanded for easier clicking */
+            top: -35px; left: -35px; right: -35px; bottom: -35px; 
             border-radius: inherit; z-index: 10; 
         }
 
-        /* 2. ABXY Custom Hitboxes (Prevents center overlap death) */
+        /* 2. ABXY Custom Hitboxes (Expanded to 15px safely within a larger cluster) */
         .abxy-btn { position: absolute; z-index: 20; }
         .abxy-btn::before {
             content: ''; position: absolute;
-            top: -10px; left: -10px; right: -10px; bottom: -10px; 
+            top: -15px; left: -15px; right: -15px; bottom: -15px; 
             border-radius: 50%; z-index: 10;
         }
 
@@ -43,100 +43,99 @@
         #ui-grid {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 10px 4vw; z-index: 10;
-            pointer-events: none; /* Lets touches pass through empty space */
+            padding: 10px 3vw; z-index: 10;
+            pointer-events: none; 
         }
         
-        #ui-grid * { pointer-events: auto; } /* Restores touch to actual buttons */
+        #ui-grid * { pointer-events: auto; } 
 
         #top-row { display: flex; justify-content: center; width: 100%; }
         #middle-row { display: flex; justify-content: space-between; align-items: center; width: 100%; flex: 1; }
         #bottom-row { display: flex; justify-content: space-between; align-items: flex-end; width: 100%; padding-bottom: 5px; }
 
-        /* Control clusters with tighter visual gaps so they fit on all screens */
-        .control-cluster { display: flex; align-items: center; gap: 3vw; }
-        .pedal-cluster { display: flex; align-items: flex-end; gap: 10px; }
+        .control-cluster { display: flex; align-items: center; gap: 4vw; }
+        .pedal-cluster { display: flex; align-items: flex-end; gap: 12px; }
 
         /* =========================================
-           COMPONENT STYLES (Scaled for Zero Overlap)
+           COMPONENT STYLES (Scaled up & Color Revamped)
            ========================================= */
 
-        /* Telemetry Dashboard */
+        /* Telemetry Dashboard (Sleeker Glassmorphism) */
         #telemetry-dash {
-            width: 260px; height: 45px; background: rgba(10, 12, 16, 0.7);
-            backdrop-filter: blur(10px); border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 12px;
+            width: 280px; height: 48px; background: rgba(13, 17, 26, 0.85);
+            backdrop-filter: blur(12px); border: 1px solid rgba(0, 176, 255, 0.25); border-radius: 12px;
             display: flex; justify-content: space-between; align-items: center;
-            padding: 0 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 5px 15px rgba(0,0,0,0.5);
-            color: #00e5ff; font-weight: 700;
+            padding: 0 25px; box-shadow: inset 0 0 20px rgba(0,0,0,0.9), 0 8px 20px rgba(0,0,0,0.6);
+            color: #00b0ff; font-weight: 700;
         }
-        .dash-label { font-size: 10px; color: #556677; text-align: center; display: block;}
-        .dash-value { text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); font-size: 18px; display: block;}
+        .dash-label { font-size: 10px; color: #627288; text-align: center; display: block; letter-spacing: 1px;}
+        .dash-value { text-shadow: 0 0 12px rgba(0, 176, 255, 0.6); font-size: 19px; display: block;}
 
         /* Center Menu Buttons */
         #center-console { display: flex; align-items: center; gap: 15px; }
         
         #guide-btn { 
-            width: 45px; height: 45px; background: #1a1d24; border-radius: 50%; 
+            width: 50px; height: 50px; background: #181d29; border-radius: 50%; 
             display: flex; justify-content: center; align-items: center; 
-            box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #0b0c10, 0 0 0 6px #1a1d24; 
+            box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), 0 5px 15px rgba(0,0,0,0.9), 0 0 0 4px #07090d, 0 0 0 6px #181d29; 
             transition: all 0.2s; flex-shrink: 0;
         }
-        #guide-logo { color: #334455; font-weight: 900; font-size: 22px; }
-        .connected #guide-btn { box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 5px 15px rgba(0,0,0,0.8), 0 0 0 4px #0b0c10, 0 0 0 6px #1a1d24, 0 0 30px rgba(0, 255, 102, 0.4); }
-        .connected #guide-logo { color: #00ff66; text-shadow: 0 0 20px #00ff66; }
+        #guide-logo { color: #435269; font-weight: 900; font-size: 24px; }
+        .connected #guide-btn { box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 5px 15px rgba(0,0,0,0.9), 0 0 0 4px #07090d, 0 0 0 6px #181d29, 0 0 35px rgba(0, 230, 118, 0.5); }
+        .connected #guide-logo { color: #00e676; text-shadow: 0 0 20px #00e676; }
 
         .small-btn { 
-            width: 35px; height: 35px; background: #151820; border-radius: 50%; 
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.5), 0 5px 10px rgba(0,0,0,0.5); 
-            border: 1px solid #222; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
+            width: 38px; height: 38px; background: #131720; border-radius: 50%; 
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.05), inset 0 -2px 4px rgba(0,0,0,0.6), 0 5px 10px rgba(0,0,0,0.6); 
+            border: 1px solid #1f2533; display: flex; justify-content: center; align-items: center; flex-shrink: 0;
         }
-        .small-btn.active { transform: scale(0.9); box-shadow: inset 0 4px 8px rgba(0,0,0,0.8); }
-        .icon-bars { width: 12px; height: 8px; border-top: 2px solid #556677; border-bottom: 2px solid #556677; }
-        .icon-squares { width: 12px; height: 12px; border: 2px solid #556677; border-radius: 2px; }
+        .small-btn.active { transform: scale(0.9); box-shadow: inset 0 4px 8px rgba(0,0,0,0.9); }
+        .icon-bars { width: 12px; height: 8px; border-top: 2px solid #627288; border-bottom: 2px solid #627288; }
+        .icon-squares { width: 12px; height: 12px; border: 2px solid #627288; border-radius: 2px; }
 
-        /* Joysticks */
-        .joystick-base { width: 110px; height: 110px; background: #0b0c10; border-radius: 50%; box-shadow: inset 0 10px 20px rgba(0,0,0,1), 0 2px 5px rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; flex-shrink: 0;}
-        .joystick-cap { width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #2a303d, #11141a); box-shadow: inset 0 0 20px rgba(0,0,0,0.5), -4px -4px 10px rgba(255,255,255,0.05), 8px 15px 25px rgba(0,0,0,0.9); border: 2px solid #1a1d24; position: relative; }
-        .joystick-cap::after { content: ''; position: absolute; top: 20%; left: 20%; width: 60%; height: 60%; border-radius: 50%; background: #0b0c10; box-shadow: inset 0 5px 15px rgba(0,0,0,0.9), 0 2px 2px rgba(255,255,255,0.05); }
+        /* Joysticks (Scaled Up) */
+        .joystick-base { width: 130px; height: 130px; background: #07090d; border-radius: 50%; box-shadow: inset 0 10px 25px rgba(0,0,0,1), 0 2px 5px rgba(255,255,255,0.03); display: flex; justify-content: center; align-items: center; flex-shrink: 0;}
+        .joystick-cap { width: 85px; height: 85px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #242a38, #0e121a); box-shadow: inset 0 0 20px rgba(0,0,0,0.6), -4px -4px 10px rgba(255,255,255,0.05), 8px 15px 25px rgba(0,0,0,0.95); border: 2px solid #181d29; position: relative; }
+        .joystick-cap::after { content: ''; position: absolute; top: 20%; left: 20%; width: 60%; height: 60%; border-radius: 50%; background: #07090d; box-shadow: inset 0 5px 15px rgba(0,0,0,0.95), 0 2px 2px rgba(255,255,255,0.05); }
 
-        /* ABXY Cluster */
-        #abxy { width: 120px; height: 120px; position: relative; flex-shrink: 0; }
-        .abxy-btn { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: #1a1d24; font-weight: 900; font-size: 20px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), 0 8px 15px rgba(0,0,0,0.8); border: 1px solid #2a303d; transition: all 0.1s; }
+        /* ABXY Cluster (Scaled Up & Spread Out) */
+        #abxy { width: 145px; height: 145px; position: relative; flex-shrink: 0; }
+        .abxy-btn { position: absolute; width: 48px; height: 48px; border-radius: 50%; background: #131720; font-weight: 900; font-size: 22px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), 0 8px 15px rgba(0,0,0,0.9); border: 1px solid #1f2533; transition: all 0.1s; }
         
-        #btnY { top: 0; left: 50%; transform: translateX(-50%); color: #ffcc00; } 
-        #btnY.active { transform: translateX(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(255, 204, 0, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #ffcc00; }
+        #btnY { top: 0; left: 50%; transform: translateX(-50%); color: #ffea00; } 
+        #btnY.active { transform: translateX(-50%) translateY(4px); background: #1a202c; box-shadow: 0 0 30px rgba(255, 234, 0, 0.6), inset 0 5px 10px rgba(0,0,0,0.9); color: #fff; border-color: #ffea00; text-shadow: 0 0 8px #ffea00; }
         
-        #btnB { right: 0; top: 50%; transform: translateY(-50%); color: #ff3333; } 
-        #btnB.active { transform: translateY(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(255, 51, 51, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #ff3333; }
+        #btnB { right: 0; top: 50%; transform: translateY(-50%); color: #ff3d00; } 
+        #btnB.active { transform: translateY(-50%) translateY(4px); background: #1a202c; box-shadow: 0 0 30px rgba(255, 61, 0, 0.6), inset 0 5px 10px rgba(0,0,0,0.9); color: #fff; border-color: #ff3d00; text-shadow: 0 0 8px #ff3d00;}
         
-        #btnA { bottom: 0; left: 50%; transform: translateX(-50%); color: #00ff66; } 
-        #btnA.active { transform: translateX(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(0, 255, 102, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #00ff66; }
+        #btnA { bottom: 0; left: 50%; transform: translateX(-50%); color: #00e676; } 
+        #btnA.active { transform: translateX(-50%) translateY(4px); background: #1a202c; box-shadow: 0 0 30px rgba(0, 230, 118, 0.6), inset 0 5px 10px rgba(0,0,0,0.9); color: #fff; border-color: #00e676; text-shadow: 0 0 8px #00e676;}
         
-        #btnX { left: 0; top: 50%; transform: translateY(-50%); color: #00ccff; } 
-        #btnX.active { transform: translateY(-50%) translateY(4px); background: #222; box-shadow: 0 0 30px rgba(0, 204, 255, 0.6), inset 0 5px 10px rgba(0,0,0,0.8); color: #fff; border-color: #00ccff; }
+        #btnX { left: 0; top: 50%; transform: translateY(-50%); color: #00b0ff; } 
+        #btnX.active { transform: translateY(-50%) translateY(4px); background: #1a202c; box-shadow: 0 0 30px rgba(0, 176, 255, 0.6), inset 0 5px 10px rgba(0,0,0,0.9); color: #fff; border-color: #00b0ff; text-shadow: 0 0 8px #00b0ff;}
 
-        /* D-Pad */
-        #dpad { width: 100px; height: 100px; position: relative; flex-shrink: 0; } 
-        .dpad-part { position: absolute; background: #1a1d24; box-shadow: inset 0 2px 5px rgba(255,255,255,0.1), inset 0 -5px 10px rgba(0,0,0,0.8), 0 8px 15px rgba(0,0,0,0.6); pointer-events: none; border: 1px solid #2a303d; }
+        /* D-Pad (Scaled Up) */
+        #dpad { width: 120px; height: 120px; position: relative; flex-shrink: 0; } 
+        .dpad-part { position: absolute; background: #131720; box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), inset 0 -5px 10px rgba(0,0,0,0.9), 0 8px 15px rgba(0,0,0,0.7); pointer-events: none; border: 1px solid #1f2533; }
         .dpad-v { top: 0; left: 33.3%; width: 33.3%; height: 100%; border-radius: 8px; }
         .dpad-h { top: 33.3%; left: 0; width: 100%; height: 33.3%; border-radius: 8px; }
         
         /* D-Pad Hitboxes & Glow */
-        .dpad-hitbox { position: absolute; width: 38%; height: 38%; z-index: 30; border-radius: 8px; transition: all 0.1s; }
-        .dpad-hitbox.active { background: rgba(0, 255, 102, 0.5); box-shadow: 0 0 20px rgba(0, 255, 102, 0.8); }
-        #dpad-up { top: -5px; left: 31%; } #dpad-down { bottom: -5px; left: 31%; } 
-        #dpad-left { top: 31%; left: -5px; } #dpad-right { top: 31%; right: -5px; }
+        .dpad-hitbox { position: absolute; width: 40%; height: 40%; z-index: 30; border-radius: 8px; transition: all 0.1s; }
+        .dpad-hitbox.active { background: rgba(0, 230, 118, 0.4); box-shadow: 0 0 25px rgba(0, 230, 118, 0.8); }
+        #dpad-up { top: -5px; left: 30%; } #dpad-down { bottom: -5px; left: 30%; } 
+        #dpad-left { top: 30%; left: -5px; } #dpad-right { top: 30%; right: -5px; }
 
-        /* Pedals & Shifters */
-        .bumper { width: 75px; height: 45px; background: #1f232d; border-radius: 8px; color: #778899; font-weight: 700; font-size: 14px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), 0 5px 15px rgba(0,0,0,0.6); border: 1px solid #2a303d; transition: all 0.1s; z-index: 20;}
-        .bumper.active { background: #0b0c10; color: #fff; box-shadow: inset 0 5px 10px rgba(0,0,0,0.8); border-color: #111; transform: translateY(4px); }
+        /* Pedals & Shifters (Scaled up widths for natural thumb resting) */
+        .bumper { width: 85px; height: 50px; background: #181d29; border-radius: 8px; color: #627288; font-weight: 700; font-size: 15px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.03), 0 5px 15px rgba(0,0,0,0.7); border: 1px solid #1f2533; transition: all 0.1s; z-index: 20;}
+        .bumper.active { background: #07090d; color: #fff; box-shadow: inset 0 5px 10px rgba(0,0,0,0.9); border-color: #111; transform: translateY(4px); }
 
-        .trigger { width: 90px; height: 65px; background: linear-gradient(to top, #1a1d24, #0b0c10); border-radius: 8px 8px 25px 25px; color: #556677; font-weight: 900; font-size: 18px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 12px; box-shadow: inset 0 -2px 2px rgba(255,255,255,0.1), 0 10px 20px rgba(0,0,0,0.8); border-bottom: 2px solid #334455; transition: all 0.1s; z-index: 20;}
-        .trigger.active { background: #0b0c10; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.8); box-shadow: inset 0 -5px 10px rgba(0,0,0,0.9), 0 2px 5px rgba(0,0,0,0.5); transform: translateY(4px); }
+        .trigger { width: 105px; height: 75px; background: linear-gradient(to top, #131720, #07090d); border-radius: 8px 8px 25px 25px; color: #627288; font-weight: 900; font-size: 20px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 12px; box-shadow: inset 0 -2px 2px rgba(255,255,255,0.05), 0 10px 20px rgba(0,0,0,0.9); border-bottom: 2px solid #1f2533; transition: all 0.1s; z-index: 20;}
+        .trigger.active { background: #07090d; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.8); box-shadow: inset 0 -5px 10px rgba(0,0,0,0.95), 0 2px 5px rgba(0,0,0,0.6); transform: translateY(4px); border-bottom-color: #00e676;}
 
         /* Connection Overlay */
-        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 5, 5, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(5px); }
-        #initBtn { padding: 15px 50px; background: #00ff66; border: none; border-radius: 5px; color: #000; font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 900; letter-spacing: 4px; cursor: pointer; box-shadow: 0 0 40px rgba(0, 255, 102, 0.4); text-transform: uppercase; transition: transform 0.2s; }
+        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 5, 7, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(8px); }
+        #initBtn { padding: 15px 50px; background: #00e676; border: none; border-radius: 6px; color: #000; font-family: 'Rajdhani', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: 4px; cursor: pointer; box-shadow: 0 0 45px rgba(0, 230, 118, 0.5); text-transform: uppercase; transition: transform 0.2s; }
         #initBtn:active { transform: scale(0.95); }
     </style>
 </head>
@@ -151,7 +150,7 @@
         <div id="telemetry-dash">
             <div>
                 <span class="dash-label">STATUS</span>
-                <span class="dash-value" id="status-txt" style="color:#ff3333;">OFFLINE</span>
+                <span class="dash-value" id="status-txt" style="color:#ff3d00;">OFFLINE</span>
             </div>
             <div>
                 <span class="dash-label">STEERING</span>
@@ -243,12 +242,12 @@
             ws.onopen = () => { 
                 isConnected = true; 
                 document.getElementById('guide-btn').parentElement.classList.add('connected'); 
-                statusTxt.innerText = "ONLINE"; statusTxt.style.color = "#00ff66";
+                statusTxt.innerText = "ONLINE"; statusTxt.style.color = "#00e676";
             };
             ws.onclose = () => { 
                 isConnected = false; 
                 document.getElementById('guide-btn').parentElement.classList.remove('connected'); 
-                statusTxt.innerText = "OFFLINE"; statusTxt.style.color = "#ff3333";
+                statusTxt.innerText = "OFFLINE"; statusTxt.style.color = "#ff3d00";
                 setTimeout(connectWebSocket, 3000); 
             };
         } catch (err) {}
@@ -275,13 +274,13 @@
             let displayAngle = (finalSteering * 90).toFixed(1);
             steerDash.innerText = displayAngle + "°";
 
-            let pixelOffset = finalSteering * 20; 
+            let pixelOffset = finalSteering * 22; 
             if(leftStickCap) leftStickCap.style.transform = `translateX(${pixelOffset}px)`;
         });
 
         const rightStick = document.getElementById('right-stick');
         const rightCap = document.getElementById('right-stick-cap');
-        let rsRadius = 25; let rsRect = null;
+        let rsRadius = 30; let rsRect = null;
 
         rightStick.addEventListener('touchstart', (e) => {
             e.preventDefault(); rsRect = rightStick.getBoundingClientRect(); updateRightStick(e.touches[0]);
