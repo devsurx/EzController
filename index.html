@@ -18,10 +18,8 @@
         @media screen and (orientation: portrait) { #portrait-warning { display: flex; } }
 
         /* =========================================
-           HITBOX MANAGEMENT (MASSIVE BUT SEPARATED)
+           HITBOX MANAGEMENT
            ========================================= */
-        
-        /* 1. Super Fat Finger (Expanded to 35px for massive pedal/bumper catch areas) */
         .fat-finger { position: relative; }
         .fat-finger::before { 
             content: ''; position: absolute; 
@@ -29,7 +27,6 @@
             border-radius: inherit; z-index: 10; 
         }
 
-        /* 2. ABXY Custom Hitboxes (Expanded to 15px safely within a larger cluster) */
         .abxy-btn { position: absolute; z-index: 20; }
         .abxy-btn::before {
             content: ''; position: absolute;
@@ -43,8 +40,7 @@
         #ui-grid {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             display: flex; flex-direction: column; justify-content: space-between;
-            padding: 10px 3vw; z-index: 10;
-            pointer-events: none; 
+            padding: 10px 3vw; z-index: 10; pointer-events: none; 
         }
         
         #ui-grid * { pointer-events: auto; } 
@@ -57,10 +53,10 @@
         .pedal-cluster { display: flex; align-items: flex-end; gap: 12px; }
 
         /* =========================================
-           COMPONENT STYLES (Scaled up & Color Revamped)
+           COMPONENT STYLES
            ========================================= */
 
-        /* Telemetry Dashboard (Sleeker Glassmorphism) */
+        /* Telemetry Dashboard */
         #telemetry-dash {
             width: 280px; height: 48px; background: rgba(13, 17, 26, 0.85);
             backdrop-filter: blur(12px); border: 1px solid rgba(0, 176, 255, 0.25); border-radius: 12px;
@@ -93,12 +89,12 @@
         .icon-bars { width: 12px; height: 8px; border-top: 2px solid #627288; border-bottom: 2px solid #627288; }
         .icon-squares { width: 12px; height: 12px; border: 2px solid #627288; border-radius: 2px; }
 
-        /* Joysticks (Scaled Up) */
+        /* Joysticks */
         .joystick-base { width: 130px; height: 130px; background: #07090d; border-radius: 50%; box-shadow: inset 0 10px 25px rgba(0,0,0,1), 0 2px 5px rgba(255,255,255,0.03); display: flex; justify-content: center; align-items: center; flex-shrink: 0;}
         .joystick-cap { width: 85px; height: 85px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #242a38, #0e121a); box-shadow: inset 0 0 20px rgba(0,0,0,0.6), -4px -4px 10px rgba(255,255,255,0.05), 8px 15px 25px rgba(0,0,0,0.95); border: 2px solid #181d29; position: relative; }
         .joystick-cap::after { content: ''; position: absolute; top: 20%; left: 20%; width: 60%; height: 60%; border-radius: 50%; background: #07090d; box-shadow: inset 0 5px 15px rgba(0,0,0,0.95), 0 2px 2px rgba(255,255,255,0.05); }
 
-        /* ABXY Cluster (Scaled Up & Spread Out) */
+        /* ABXY Cluster */
         #abxy { width: 145px; height: 145px; position: relative; flex-shrink: 0; }
         .abxy-btn { position: absolute; width: 48px; height: 48px; border-radius: 50%; background: #131720; font-weight: 900; font-size: 22px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), 0 8px 15px rgba(0,0,0,0.9); border: 1px solid #1f2533; transition: all 0.1s; }
         
@@ -114,7 +110,7 @@
         #btnX { left: 0; top: 50%; transform: translateY(-50%); color: #00b0ff; } 
         #btnX.active { transform: translateY(-50%) translateY(4px); background: #1a202c; box-shadow: 0 0 30px rgba(0, 176, 255, 0.6), inset 0 5px 10px rgba(0,0,0,0.9); color: #fff; border-color: #00b0ff; text-shadow: 0 0 8px #00b0ff;}
 
-        /* D-Pad (Scaled Up) */
+        /* D-Pad */
         #dpad { width: 120px; height: 120px; position: relative; flex-shrink: 0; } 
         .dpad-part { position: absolute; background: #131720; box-shadow: inset 0 2px 5px rgba(255,255,255,0.05), inset 0 -5px 10px rgba(0,0,0,0.9), 0 8px 15px rgba(0,0,0,0.7); pointer-events: none; border: 1px solid #1f2533; }
         .dpad-v { top: 0; left: 33.3%; width: 33.3%; height: 100%; border-radius: 8px; }
@@ -126,12 +122,27 @@
         #dpad-up { top: -5px; left: 30%; } #dpad-down { bottom: -5px; left: 30%; } 
         #dpad-left { top: 30%; left: -5px; } #dpad-right { top: 30%; right: -5px; }
 
-        /* Pedals & Shifters (Scaled up widths for natural thumb resting) */
+        /* Pedals & Shifters */
         .bumper { width: 85px; height: 50px; background: #181d29; border-radius: 8px; color: #627288; font-weight: 700; font-size: 15px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(255,255,255,0.03), 0 5px 15px rgba(0,0,0,0.7); border: 1px solid #1f2533; transition: all 0.1s; z-index: 20;}
         .bumper.active { background: #07090d; color: #fff; box-shadow: inset 0 5px 10px rgba(0,0,0,0.9); border-color: #111; transform: translateY(4px); }
 
         .trigger { width: 105px; height: 75px; background: linear-gradient(to top, #131720, #07090d); border-radius: 8px 8px 25px 25px; color: #627288; font-weight: 900; font-size: 20px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 12px; box-shadow: inset 0 -2px 2px rgba(255,255,255,0.05), 0 10px 20px rgba(0,0,0,0.9); border-bottom: 2px solid #1f2533; transition: all 0.1s; z-index: 20;}
         .trigger.active { background: #07090d; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.8); box-shadow: inset 0 -5px 10px rgba(0,0,0,0.95), 0 2px 5px rgba(0,0,0,0.6); transform: translateY(4px); border-bottom-color: #00e676;}
+
+        /* --- THE NEW DEDICATED E-BRAKE BUTTON --- */
+        #ebrake-btn {
+            width: 140px; height: 55px; background: linear-gradient(to bottom, #ff1744, #d50000); 
+            border-radius: 8px; color: #fff; font-weight: 900; font-size: 22px; letter-spacing: 1px;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 5px 15px rgba(213, 0, 0, 0.4), inset 0 2px 5px rgba(255,255,255,0.2), inset 0 -3px 5px rgba(0,0,0,0.5);
+            border: 1px solid #ff5252; text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            transition: all 0.1s; z-index: 20; align-self: flex-end; margin-bottom: 5px;
+        }
+        #ebrake-btn.active {
+            transform: translateY(4px); background: #b71c1c; 
+            box-shadow: 0 2px 5px rgba(213, 0, 0, 0.4), inset 0 3px 10px rgba(0,0,0,0.8);
+            border-color: #d50000;
+        }
 
         /* Connection Overlay */
         #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 5, 7, 0.95); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(8px); }
@@ -200,6 +211,8 @@
             <div class="trigger fat-finger" id="lt">BRAKE</div>
             <div class="bumper fat-finger" id="rb">GEAR +</div>
         </div>
+
+        <div class="fat-finger" id="ebrake-btn">E-BRAKE</div>
         
         <div class="pedal-cluster">
             <div class="bumper fat-finger" id="lb">GEAR -</div>
@@ -262,11 +275,26 @@
             let tilt = event.beta; 
             if (window.orientation === -90) tilt = -tilt;
             
-            let maxTiltAngle = 18.0; 
+            // --- UPDATED FORZA PHYSICS (Razor sharp micro-adjustments) ---
+            
+            // 1. The Razor Deadzone: Tightened to 1.2 degrees. 
+            // Just enough to keep you tracking straight, but bites instantly.
+            let deadzone = 1.2;
+            
+            if (Math.abs(tilt) < deadzone) {
+                tilt = 0;
+            } else {
+                tilt = Math.sign(tilt) * (Math.abs(tilt) - deadzone);
+            }
+            
+            // 2. Hair-Trigger Lock: Only takes 10 degrees to hit 100% steering lock.
+            let maxTiltAngle = 10.0; 
+            
             let rawSteering = tilt / maxTiltAngle; 
             rawSteering = Math.max(-1.0, Math.min(1.0, rawSteering));
             
-            let curvePower = 1.5;
+            // 3. True Linear Response: Micro-adjustments are translated 1:1 directly to the wheels.
+            let curvePower = 1.0; 
             let finalSteering = Math.sign(rawSteering) * Math.pow(Math.abs(rawSteering), curvePower);
             
             inputState.steering = finalSteering;
@@ -311,6 +339,10 @@
         bindButton('btnA', 'a_btn'); bindButton('btnX', 'x_btn'); bindButton('btnB', 'handbrake'); bindButton('btnY', 'y_btn');
         bindButton('view-btn', 'view_btn'); bindButton('menu-btn', 'menu_btn'); bindButton('guide-btn', 'guide_btn');
         bindButton('dpad-up', 'dpad_up'); bindButton('dpad-down', 'dpad_down'); bindButton('dpad-left', 'dpad_left'); bindButton('dpad-right', 'dpad_right');
+        
+        // --- BINDING THE NEW E-BRAKE BUTTON ---
+        // Maps to a_btn because A is the default E-Brake in Forza.
+        bindButton('ebrake-btn', 'a_btn');
 
         setInterval(() => {
             if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
