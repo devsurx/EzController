@@ -1,0 +1,652 @@
+#!/usr/bin/env bash
+# EzController CLI - launch the low-latency virtual Xbox pad server.
+#
+#   controller              start in the background (default)
+#   controller up           start server + HTTPS tunnel
+#   controller stop         stop everything
+#   controller setup        one-time uinput permission setup (sudo)
+#
+# The server can be launched from any directory; logs and PIDs live under
+# $XDG_STATE_HOME/ezcontroller (default ~/.local/state/ezcontroller).
+
+set -uo pipefail
+
+SELF="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")"
+REPO_DIR="${EZC_HOME:-$(cd -- "$(dirname -- "$SELF")" && pwd)}"
+
+# When this file is copied (instead of symlinked) into ~/.local/bin, find the
+# checkout by convention.
+if [[ ! -f "$REPO_DIR/server.py" ]]; then
+    for candidate in "$HOME/EzController" "$HOME/ezcontroller" "$HOME/.local/share/ezcontroller"; do
+        if [[ -f "$candidate/server.py" ]]; then
+            REPO_DIR="$candidate"
+            break
+        fi
+    done
+fi
+
+SERVER="$REPO_DIR/server.py"
+if [[ -n "${EZC_PYTHON:-}" ]]; then
+    PYTHON="$EZC_PYTHON"
+elif [[ -x "$REPO_DIR/.venv/bin/python" ]]; then
+    PYTHON="$REPO_DIR/.venv/bin/python"
+else
+    PYTHON="python3"
+fi
+HOST="${EZC_HOST:-0.0.0.0}"
+PORT="${EZC_PORT:-5000}"
+PAD="${EZC_PAD:-auto}"
+read -r -a SUDO_CMD <<< "${EZC_SUDO:-sudo}"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/ezcontroller"
+LOG_DIR="$STATE_DIR/logs"
+PID_FILE="$STATE_DIR/server.pid"
+PORT_FILE="$STATE_DIR/port"
+HOST_FILE="$STATE_DIR/host"
+TUNNEL_PID_FILE="$STATE_DIR/tunnel.pid"
+TUNNEL_URL_FILE="$STATE_DIR/tunnel.url"
+TUNNEL_KIND_FILE="$STATE_DIR/tunnel.kind"
+SERVER_LOG="$LOG_DIR/server.log"
+TUNNEL_LOG="$LOG_DIR/tunnel.log"
+
+if [[ -t 1 ]]; then
+    C_RESET=$'\033[0m'; C_CYAN=$'\033[36m'; C_GREEN=$'\033[32m'
+    C_YELLOW=$'\033[33m'; C_RED=$'\033[31m'; C_DIM=$'\033[2m'
+else
+    C_RESET=""; C_CYAN=""; C_GREEN=""; C_YELLOW=""; C_RED=""; C_DIM=""
+fi
+
+info() { printf '%s[*]%s %s\n' "$C_CYAN" "$C_RESET" "$*"; }
+ok()   { printf '%s[+]%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+warn() { printf '%s[!]%s %s\n' "$C_YELLOW" "$C_RESET" "$*" >&2; }
+die()  { printf '%s[x]%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
+
+ensure_dirs() {
+    mkdir -p "$LOG_DIR" || die "Cannot create $LOG_DIR"
+}
+
+pid_alive() {
+    [[ -n "${1:-}" ]] && kill -0 "$1" 2>/dev/null
+}
+
+read_pid() {
+    local file="$1" pid
+    [[ -f "$file" ]] || return 1
+    pid="$(<"$file")"
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    printf '%s' "$pid"
+}
+
+cmdline_of() {
+    tr '\0' ' ' < "/proc/$1/cmdline" 2>/dev/null || true
+}
+
+server_running() {
+    local pid
+    pid="$(read_pid "$PID_FILE")" || return 1
+    pid_alive "$pid" || return 1
+    [[ "$(cmdline_of "$pid")" == *"server.py"* ]]
+}
+
+tunnel_running() {
+    local pid
+    pid="$(read_pid "$TUNNEL_PID_FILE")" || return 1
+    pid_alive "$pid" || return 1
+    local cmdline
+    cmdline="$(cmdline_of "$pid")"
+    [[ "$cmdline" == *cloudflared* || "$cmdline" == *ngrok* ]]
+}
+
+in_input_group() {
+    local groups
+    groups="$(id -nG "${1:-${USER:-$(id -un)}}" 2>/dev/null || true)"
+    [[ " $groups " == *" input "* ]]
+}
+
+lan_ip() {
+    local ip=""
+    if command -v ip >/dev/null 2>&1; then
+        ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')"
+    fi
+    if [[ -z "$ip" ]]; then
+        ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    fi
+    [[ -n "$ip" ]] && printf '%s' "$ip" || printf '127.0.0.1'
+}
+
+current_port() {
+    local p
+    p="$(cat "$PORT_FILE" 2>/dev/null || true)"
+    if [[ "$p" =~ ^[0-9]+$ ]]; then printf '%s' "$p"; else printf '%s' "$PORT"; fi
+}
+
+health_host() {
+    local h
+    h="$(cat "$HOST_FILE" 2>/dev/null || printf '%s' "$HOST")"
+    case "$h" in
+        0.0.0.0|::|"") printf '127.0.0.1' ;;
+        *) printf '%s' "$h" ;;
+    esac
+}
+
+health_json() {
+    local url="http://$(health_host):$(current_port)/health"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS --max-time 0.6 --connect-timeout 0.3 "$url" 2>/dev/null
+    else
+        "$PYTHON" - "$(health_host)" "$(current_port)" <<'PY' 2>/dev/null
+import sys, urllib.request
+try:
+    with urllib.request.urlopen(f"http://{sys.argv[1]}:{sys.argv[2]}/health", timeout=0.6) as r:
+        sys.stdout.write(r.read().decode())
+except Exception:
+    raise SystemExit(1)
+PY
+    fi
+}
+
+health_ok() { health_json >/dev/null 2>&1; }
+
+wait_ready() {
+    local i=0
+    while (( i < 120 )); do
+        health_ok && return 0
+        server_running || return 1
+        sleep 0.05
+        ((i++))
+    done
+    return 1
+}
+
+print_urls() {
+    local host port lan
+    host="$(cat "$HOST_FILE" 2>/dev/null || printf '%s' "$HOST")"
+    port="$(current_port)"
+    lan="$(lan_ip)"
+    printf '  Local   : http://127.0.0.1:%s\n' "$port"
+    case "$host" in
+        0.0.0.0|::|"") printf '  Phone   : http://%s:%s\n' "$lan" "$port" ;;
+        *) printf '  Phone   : http://%s:%s\n' "$host" "$port" ;;
+    esac
+}
+
+stop_pidfile() {
+    local file="$1" name="$2" pattern="${3:-}" pid cmdline
+    pid="$(read_pid "$file")" || { rm -f "$file"; return 0; }
+    if pid_alive "$pid"; then
+        cmdline="$(cmdline_of "$pid")"
+        if [[ -n "$pattern" && "$cmdline" != *"$pattern"* ]]; then
+            # Pid file was stale and the PID belongs to something else.
+            rm -f "$file"
+            return 0
+        fi
+        kill -TERM "$pid" 2>/dev/null || true
+        local i
+        for ((i = 0; i < 40; i++)); do
+            pid_alive "$pid" || break
+            sleep 0.05
+        done
+        if pid_alive "$pid"; then
+            kill -KILL "$pid" 2>/dev/null || true
+        fi
+        ok "$name stopped (pid $pid)"
+    fi
+    rm -f "$file"
+}
+
+stop_tunnel() {
+    if tunnel_running; then
+        stop_pidfile "$TUNNEL_PID_FILE" "tunnel"
+    else
+        rm -f "$TUNNEL_PID_FILE"
+    fi
+    rm -f "$TUNNEL_URL_FILE" "$TUNNEL_KIND_FILE"
+}
+
+tunnel_status() {
+    if tunnel_running; then
+        local url
+        url="$(cat "$TUNNEL_URL_FILE" 2>/dev/null || true)"
+        if [[ -n "$url" ]]; then
+            printf '  Tunnel  : %s\n' "$url"
+        else
+            printf '  Tunnel  : starting...\n'
+        fi
+    elif [[ -f "$TUNNEL_PID_FILE" ]]; then
+        printf '  Tunnel  : stale pid file\n'
+    else
+        printf '  Tunnel  : stopped\n'
+    fi
+}
+
+start() {
+    [[ "$PORT" =~ ^[0-9]+$ ]] || die "EZC_PORT must be a number (got: $PORT)"
+    command -v "$PYTHON" >/dev/null 2>&1 || die "$PYTHON not found"
+    [[ -f "$SERVER" ]] || die "server.py not found at $SERVER"
+
+    ensure_dirs
+
+    if server_running; then
+        ok "EzController is already running"
+        print_urls
+        tunnel_status
+        return 0
+    fi
+
+    rm -f "$PID_FILE"
+    if [[ -f "$SERVER_LOG" ]] && (( $(stat -c%s "$SERVER_LOG" 2>/dev/null || echo 0) > 2097152 )); then
+        mv -f "$SERVER_LOG" "$SERVER_LOG.1" 2>/dev/null || true
+    fi
+
+    printf '%s' "$PORT" > "$PORT_FILE"
+    printf '%s' "$HOST" > "$HOST_FILE"
+
+    info "Starting EzController (pad: $PAD, port: $PORT)..."
+    (
+        cd "$REPO_DIR" || exit 1
+        PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+            nohup "$PYTHON" "$SERVER" \
+            --host "$HOST" --port "$PORT" --pad "$PAD" --pidfile "$PID_FILE" \
+            >>"$SERVER_LOG" 2>&1 </dev/null &
+        printf '%s' "$!" > "$PID_FILE"
+    )
+
+    local pid
+    pid="$(read_pid "$PID_FILE" || true)"
+    [[ -n "$pid" ]] || die "Failed to launch the server"
+
+    if wait_ready; then
+        printf '\n'
+        ok "EzController running (pid $pid, pad: $PAD)"
+        print_urls
+        printf '  Tunnel  : controller tunnel  (HTTPS, needed for phone gyro)\n'
+        printf '  Logs    : controller logs    Stop: controller stop\n\n'
+        if [[ "$PAD" == "auto" && ! -w /dev/uinput ]]; then
+            warn "No write access to /dev/uinput. Run: controller setup"
+        fi
+        return 0
+    fi
+
+    warn "Server failed to start"
+    printf '%s--- server log ---%s\n' "$C_DIM" "$C_RESET" >&2
+    tail -n 40 "$SERVER_LOG" >&2 2>/dev/null || true
+    rm -f "$PID_FILE"
+    return 1
+}
+
+stop() {
+    stop_tunnel
+    if ! server_running; then
+        rm -f "$PID_FILE"
+        info "EzController is not running"
+        return 0
+    fi
+    stop_pidfile "$PID_FILE" "EzController" "server.py"
+}
+
+restart() {
+    local had_tunnel=0
+    tunnel_running && had_tunnel=1
+    stop
+    start || return 1
+    if (( had_tunnel )); then
+        tunnel_start || warn "Could not restore the tunnel"
+    fi
+}
+
+status() {
+    if ! server_running; then
+        warn "EzController is not running"
+        print_urls
+        tunnel_status
+        return 1
+    fi
+
+    local pid health
+    pid="$(read_pid "$PID_FILE")"
+    printf '%sEzController:%s running (pid %s, port %s)\n' "$C_CYAN" "$C_RESET" "$pid" "$(current_port)"
+    health="$(health_json || true)"
+    if [[ -n "$health" ]]; then
+        printf '%s' "$health" | "$PYTHON" -c '
+import json, sys
+d = json.load(sys.stdin)
+print("  Pad     : %s" % d.get("pad"))
+print("  Clients : %s   Messages: %s   Uptime: %ss" % (d.get("clients"), d.get("messages"), d.get("uptime")))
+' 2>/dev/null || true
+    fi
+    print_urls
+    tunnel_status
+    printf '  Logs    : %s\n' "$SERVER_LOG"
+}
+
+url_cmd() {
+    print_urls
+    tunnel_status
+}
+
+logs_cmd() {
+    [[ -f "$SERVER_LOG" ]] || die "No log file yet: $SERVER_LOG"
+    if [[ "${1:-}" == "-f" || "${1:-}" == "--follow" ]]; then
+        exec tail -n 80 -f "$SERVER_LOG"
+    fi
+    tail -n "${1:-60}" "$SERVER_LOG"
+}
+
+find_cloudflared() {
+    if command -v cloudflared >/dev/null 2>&1; then
+        command -v cloudflared
+    elif [[ -x "$HOME/.local/bin/cloudflared" ]]; then
+        printf '%s' "$HOME/.local/bin/cloudflared"
+    else
+        return 1
+    fi
+}
+
+wait_tunnel_url() {
+    local pid="$1" pattern="$2" url=""
+    local i
+    for ((i = 0; i < 400; i++)); do
+        if [[ -f "$TUNNEL_LOG" ]]; then
+            url="$(sed -E 's/\x1B\[[0-9;]*[mK]//g' "$TUNNEL_LOG" 2>/dev/null | grep -Eo "$pattern" | tail -n 1 || true)"
+        fi
+        [[ -n "$url" ]] && break
+        pid_alive "$pid" || break
+        sleep 0.1
+    done
+
+    if [[ -n "$url" ]]; then
+        printf '%s' "$url" > "$TUNNEL_URL_FILE"
+        ok "HTTPS tunnel: $url"
+        return 0
+    fi
+
+    warn "Tunnel did not provide a URL"
+    tail -n 25 "$TUNNEL_LOG" >&2 2>/dev/null || true
+    stop_tunnel
+    return 1
+}
+
+tunnel_start() {
+    if tunnel_running; then
+        local url
+        url="$(cat "$TUNNEL_URL_FILE" 2>/dev/null || true)"
+        ok "Tunnel is already running${url:+: $url}"
+        return 0
+    fi
+
+    if ! server_running; then
+        start || return 1
+    fi
+
+    ensure_dirs
+    : > "$TUNNEL_LOG"
+
+    local cf="" ng="" pid port
+    cf="$(find_cloudflared || true)"
+    ng="$(command -v ngrok 2>/dev/null || true)"
+    port="$(current_port)"
+
+    if [[ -n "$cf" ]]; then
+        printf 'cloudflared' > "$TUNNEL_KIND_FILE"
+        info "Opening a Cloudflare quick tunnel..."
+        nohup "$cf" tunnel --url "http://127.0.0.1:$port" \
+            --no-autoupdate --loglevel info \
+            >>"$TUNNEL_LOG" 2>&1 </dev/null &
+        pid=$!
+        printf '%s' "$pid" > "$TUNNEL_PID_FILE"
+        disown "$pid" 2>/dev/null || true
+        wait_tunnel_url "$pid" 'https://[A-Za-z0-9.-]+\.trycloudflare\.com'
+        return $?
+    fi
+
+    if [[ -n "$ng" ]]; then
+        printf 'ngrok' > "$TUNNEL_KIND_FILE"
+        info "Opening an ngrok tunnel..."
+        nohup "$ng" http "$port" --log=stdout --log-format=json \
+            >>"$TUNNEL_LOG" 2>&1 </dev/null &
+        pid=$!
+        printf '%s' "$pid" > "$TUNNEL_PID_FILE"
+        disown "$pid" 2>/dev/null || true
+        wait_tunnel_url "$pid" 'https://[A-Za-z0-9.-]+\.ngrok[A-Za-z0-9./-]*'
+        return $?
+    fi
+
+    warn "No tunnel tool found."
+    warn "Install cloudflared with: controller tunnel install"
+    return 1
+}
+
+tunnel_install() {
+    command -v curl >/dev/null 2>&1 || die "curl is required to download cloudflared"
+    local arch dest
+    case "$(uname -m)" in
+        x86_64|amd64) arch="amd64" ;;
+        aarch64|arm64) arch="arm64" ;;
+        armv7l|armv6l) arch="arm" ;;
+        *) die "Unsupported CPU architecture: $(uname -m)" ;;
+    esac
+    dest="$HOME/.local/bin/cloudflared"
+    mkdir -p "$(dirname "$dest")"
+
+    info "Downloading cloudflared-linux-$arch (no root required)..."
+    if ! curl -fL --retry 2 --connect-timeout 10 \
+        -o "$dest.tmp" \
+        "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$arch"; then
+        rm -f "$dest.tmp"
+        die "Download failed. Check your internet connection."
+    fi
+    chmod +x "$dest.tmp"
+    mv -f "$dest.tmp" "$dest"
+    ok "Installed: $("$dest" --version 2>&1 | head -n 1)"
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) warn "Add ~/.local/bin to PATH, or re-open your terminal." ;;
+    esac
+}
+
+tunnel_cmd() {
+    case "${1:-start}" in
+        start|"") tunnel_start ;;
+        stop|down) stop_tunnel ;;
+        status) tunnel_status ;;
+        install) tunnel_install ;;
+        *) die "Unknown tunnel command: $1" ;;
+    esac
+}
+
+up() {
+    start || return 1
+    if ! tunnel_start; then
+        warn "Server is running; HTTPS tunnel unavailable."
+        warn "Install it with: controller tunnel install"
+    fi
+}
+
+setup() {
+    ensure_dirs
+    mkdir -p "$HOME/.local/bin"
+    ln -sfn "$REPO_DIR/controller" "$HOME/.local/bin/controller"
+    chmod +x "$REPO_DIR/controller" "$REPO_DIR/server.py" 2>/dev/null || true
+    ok "command installed: $HOME/.local/bin/controller"
+
+    case ":$PATH:" in
+        *":$HOME/.local/bin:"*) ;;
+        *) warn "Add ~/.local/bin to PATH (it is usually added by ~/.profile)." ;;
+    esac
+
+    if [[ -w /dev/uinput ]]; then
+        ok "/dev/uinput is writable - no root changes needed"
+        return 0
+    fi
+
+    [[ -e "$REPO_DIR/99-ezcontroller.rules" ]] || die "Missing 99-ezcontroller.rules in $REPO_DIR"
+    command -v "${SUDO_CMD[0]}" >/dev/null 2>&1 || die "${SUDO_CMD[0]} not found; install the udev rule manually as root"
+
+    info "Installing the one-time uinput udev rule (sudo password required)..."
+    "${SUDO_CMD[@]}" install -D -m 0644 "$REPO_DIR/99-ezcontroller.rules" /etc/udev/rules.d/99-ezcontroller.rules || die "Could not install the udev rule"
+    printf 'uinput\n' | "${SUDO_CMD[@]}" tee /etc/modules-load.d/ezcontroller.conf >/dev/null || warn "Could not persist the uinput module"
+    command -v modprobe >/dev/null 2>&1 && { "${SUDO_CMD[@]}" modprobe uinput 2>/dev/null || true; }
+    command -v udevadm >/dev/null 2>&1 && {
+        "${SUDO_CMD[@]}" udevadm control --reload-rules 2>/dev/null || true
+        "${SUDO_CMD[@]}" udevadm trigger --name-match=uinput 2>/dev/null || true
+    }
+    # Make the already-created node usable without waiting for a reboot.
+    "${SUDO_CMD[@]}" chgrp input /dev/uinput 2>/dev/null || true
+    "${SUDO_CMD[@]}" chmod 0660 /dev/uinput 2>/dev/null || true
+
+    local user_name="${USER:-$(id -un)}"
+    if ! in_input_group "$user_name"; then
+        info "Adding $user_name to the input group..."
+        "${SUDO_CMD[@]}" usermod -aG input "$user_name" || warn "Could not add $user_name to the input group"
+        warn "Log out and back in (or reboot), then run: controller"
+    fi
+
+    if [[ -w /dev/uinput ]]; then
+        ok "uinput is ready. Start with: controller"
+    else
+        warn "/dev/uinput still is not writable:"
+        ls -l /dev/uinput 2>&1 | sed 's/^/    /' >&2 || true
+        warn "A reboot or re-login may be required, then run: controller"
+        return 1
+    fi
+}
+
+doctor() {
+    local failures=0
+    printf '%sEzController doctor%s\n' "$C_CYAN" "$C_RESET"
+    printf '  Repo      : %s\n' "$REPO_DIR"
+    printf '  Python    : %s\n' "$("$PYTHON" --version 2>&1 || echo missing)"
+    if "$PYTHON" -c 'import websockets; raise SystemExit(0 if int(websockets.__version__.split(".")[0]) >= 14 else 1)' 2>/dev/null; then
+        "$PYTHON" -c 'import websockets; print("  websockets: " + websockets.__version__)'
+    else
+        printf '  websockets: missing or too old (need >=14; pip install -r requirements.txt)\n'; failures=$((failures+1))
+    fi
+
+    if [[ -w /dev/uinput ]]; then
+        printf '  uinput    : writable\n'
+    else
+        printf '  uinput    : NOT writable\n'; failures=$((failures+1))
+        [[ -e /dev/uinput ]] && ls -l /dev/uinput | sed 's/^/              /'
+        printf '              Fix: controller setup\n'
+    fi
+
+    if in_input_group; then
+        printf '  input grp : yes\n'
+    else
+        printf '  input grp : no (needed for the udev rule)\n'; failures=$((failures+1))
+    fi
+
+    if lsmod 2>/dev/null | grep -E '^uinput' >/dev/null; then
+        printf '  module    : uinput loaded\n'
+    else
+        printf '  module    : uinput not loaded (controller setup loads it)\n'; failures=$((failures+1))
+    fi
+
+    if command -v ip >/dev/null 2>&1; then
+        printf '  LAN IP    : %s\n' "$(lan_ip)"
+    fi
+
+    local port_state
+    port_state="$("$PYTHON" - "$PORT" <<'PY' 2>/dev/null
+import socket, sys
+s = socket.socket()
+try:
+    s.bind(("0.0.0.0", int(sys.argv[1])))
+    print("free")
+except OSError as exc:
+    print(f"in use ({exc})")
+finally:
+    s.close()
+PY
+)"
+    printf '  Port %-5s: %s\n' "$PORT" "${port_state:-unknown}"
+
+    if server_running; then
+        printf '  Server    : running (pid %s)\n' "$(read_pid "$PID_FILE")"
+    else
+        printf '  Server    : stopped\n'
+    fi
+
+    if find_cloudflared >/dev/null 2>&1; then
+        printf '  Tunnel    : cloudflared available\n'
+    elif command -v ngrok >/dev/null 2>&1; then
+        printf '  Tunnel    : ngrok available\n'
+    else
+        printf '  Tunnel    : none (controller tunnel install)\n'
+    fi
+
+    if (( failures > 0 )); then
+        printf '\n%s%d check(s) need attention.%s\n' "$C_YELLOW" "$failures" "$C_RESET"
+        return 1
+    fi
+    printf '\n%sAll checks passed.%s\n' "$C_GREEN" "$C_RESET"
+}
+
+foreground() {
+    [[ "$PORT" =~ ^[0-9]+$ ]] || die "EZC_PORT must be a number (got: $PORT)"
+    server_running && die "Already running in the background. Use: controller stop"
+    cd "$REPO_DIR" || die "Cannot cd to $REPO_DIR"
+    exec "$PYTHON" "$SERVER" --host "$HOST" --port "$PORT" --pad "$PAD"
+}
+
+usage() {
+    cat <<EOF
+${C_CYAN}EzController${C_RESET} - low-latency wireless virtual Xbox 360 pad
+
+Usage: controller [command]
+
+Commands:
+  start (default)   Start the server in the background
+  up                Start the server + HTTPS tunnel (for phone gyro)
+  stop, down        Stop the server and tunnel
+  restart           Restart the server (restores the tunnel if it was up)
+  status            Show PID, pad, URLs, client count and tunnel
+  url               Print connection URLs
+  logs [-f] [N]     Show server logs (default 60 lines, -f to follow)
+  tunnel [start]    Start an HTTPS tunnel (cloudflared or ngrok)
+  tunnel stop       Stop the tunnel
+  tunnel status     Show the HTTPS URL
+  tunnel install    Download cloudflared (no root required)
+  setup             Install the command + one-time uinput udev rule
+  doctor            Diagnose uinput, Python, port and tunnel
+  foreground        Run in the foreground (Ctrl+C to stop)
+  version           Print the server version
+  help              Show this help
+
+Examples:
+  controller                 # background server
+  controller up              # server + HTTPS URL for the phone
+  controller logs -f         # live log
+  controller doctor          # why isn't /dev/uinput working?
+
+Env:
+  EZC_PORT (5000)  EZC_HOST (0.0.0.0)  EZC_PAD (auto|linux|windows|mock)
+  EZC_HOME (checkout path)             EZC_PYTHON (python3)
+  EZC_SUDO (sudo)                      SUDO_ASKPASS is honored by sudo -A
+EOF
+}
+
+ensure_dirs
+
+cmd="${1:-start}"
+case "$cmd" in
+    start) shift || true; start ;;
+    up) shift || true; up ;;
+    stop|down) shift || true; stop ;;
+    restart) shift || true; restart ;;
+    status) shift || true; status ;;
+    url) shift || true; url_cmd ;;
+    logs) shift || true; logs_cmd "${1:-}" ;;
+    tunnel) shift || true; tunnel_cmd "$@" ;;
+    setup) shift || true; setup ;;
+    doctor) shift || true; doctor ;;
+    foreground|run) shift || true; foreground ;;
+    version|--version|-v) "$PYTHON" "$SERVER" --version 2>/dev/null || printf 'EzController\n' ;;
+    help|--help|-h) usage ;;
+    *)
+        warn "Unknown command: $cmd"
+        printf '\n'
+        usage
+        exit 2
+        ;;
+esac

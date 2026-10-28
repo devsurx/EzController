@@ -94,6 +94,43 @@
 
         .side-hud { font-family: 'Share Tech Mono', monospace; color: #4a5c75; font-size: 10px; text-shadow: 0 0 5px rgba(0, 243, 255, 0.2); letter-spacing: 1px; display: flex; flex-direction: column; gap: 4px; }
         .side-hud span { background: rgba(0,0,0,0.5); padding: 2px 6px; border: 1px solid rgba(0,243,255,0.1); border-radius: 2px; }
+        #tune-btn { cursor: pointer; color: #00f3ff; border-color: rgba(0,243,255,0.45) !important; }
+        #tune-btn.active { background: rgba(0,243,255,0.15); }
+
+        /* =========================================
+           STEERING TUNE PANEL
+           ========================================= */
+        #tune-backdrop {
+            display: none; position: fixed; inset: 0; z-index: 299;
+            background: rgba(0,0,0,0.72); backdrop-filter: blur(3px);
+        }
+        #tune-backdrop.open { display: block; }
+        #tune-panel {
+            display: none; position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); z-index: 300;
+            width: min(380px, 88vw); padding: 18px 20px;
+            background: rgba(5,8,14,0.98); color: #00f3ff;
+            border: 1px solid rgba(0,243,255,0.55);
+            box-shadow: 0 0 45px rgba(0,243,255,0.22), inset 0 0 30px rgba(0,243,255,0.04);
+            font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
+            flex-direction: column; gap: 13px;
+            clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+        }
+        #tune-panel.open { display: flex; }
+        #tune-title { font-family: 'Share Tech Mono', monospace; font-size: 15px; letter-spacing: 3px; text-align: center; border-bottom: 1px solid rgba(0,243,255,0.25); padding-bottom: 8px; }
+        .tune-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; font-weight: 700; }
+        .tune-row input[type=range] { flex: 1; min-width: 80px; accent-color: #00f3ff; touch-action: auto; }
+        .tune-row input[type=checkbox] { width: 20px; height: 20px; accent-color: #00f3ff; touch-action: auto; }
+        .tune-row b { min-width: 46px; text-align: right; color: #00ff66; font-family: 'Share Tech Mono', monospace; font-weight: 400; }
+        #tune-panel button {
+            font-family: 'Rajdhani', sans-serif; font-weight: 900; letter-spacing: 2px;
+            font-size: 14px; padding: 11px 12px; cursor: pointer;
+            color: #00f3ff; background: rgba(0,243,255,0.06);
+            border: 1px solid rgba(0,243,255,0.4); text-transform: uppercase;
+        }
+        #tune-panel button:active { background: rgba(0,243,255,0.2); }
+        #tune-reset { color: #ff6b7f; border-color: rgba(255,0,60,0.4); background: rgba(255,0,60,0.06); }
+        #tune-status { min-height: 16px; text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #00ff66; }
 
         #telemetry-dash {
             width: 300px; height: 50px; background: rgba(5, 8, 14, 0.85);
@@ -191,7 +228,7 @@
         /* =========================================
            BOOT TERMINAL & OVERLAY
            ========================================= */
-        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #020304; display: flex; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.5s ease; }
+        #initOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #020304; display: flex; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.18s ease; }
         #initBtn { padding: 15px 50px; background: transparent; border: 2px solid #00f3ff; color: #00f3ff; font-family: 'Rajdhani', sans-serif; font-size: 26px; font-weight: 900; letter-spacing: 6px; cursor: pointer; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2), inset 0 0 10px rgba(0, 243, 255, 0.1); text-transform: uppercase; transition: all 0.2s; clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px); }
         #initBtn:active { transform: scale(0.95); background: rgba(0, 243, 255, 0.1); box-shadow: 0 0 40px rgba(0, 243, 255, 0.5); }
         
@@ -217,6 +254,18 @@
     <div id="boot-terminal"></div>
 </div>
 
+<div id="tune-backdrop"></div>
+<div id="tune-panel" role="dialog" aria-label="Steering tuning">
+    <div id="tune-title">STEERING TUNE</div>
+    <label class="tune-row"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
+    <label class="tune-row"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">10°</b></label>
+    <label class="tune-row"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">1.2°</b></label>
+    <button id="tune-cal">CALIBRATE CENTER</button>
+    <button id="tune-reset">RESET DEFAULTS</button>
+    <button id="tune-close">CLOSE</button>
+    <div id="tune-status"></div>
+</div>
+
 <div id="ui-grid">
     <div id="top-row">
         <div id="rpm-container"><div id="rpm-fill"></div></div>
@@ -240,6 +289,7 @@
             <div class="side-hud">
                 <span>OIL: 212°F</span>
                 <span>BST: 14 PSI</span>
+                <span id="tune-btn" role="button" aria-label="Steering settings">⚙ TUNE</span>
             </div>
         </div>
     </div>
@@ -296,172 +346,507 @@
 </div>
 
 <script>
-    let ws; 
-    let inputState = { 
-        steering: 0.0, throttle: 0, brake: 0, handbrake: 0, 
-        y_btn: 0, x_btn: 0, a_btn: 0, lb: 0, rb: 0, 
+    "use strict";
+
+    const $ = (id) => document.getElementById(id);
+    const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+    const number = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+    const isNum = (v) => typeof v === "number" && Number.isFinite(v);
+
+    const BUTTON_KEYS = [
+        "handbrake", "y_btn", "x_btn", "a_btn", "lb", "rb",
+        "view_btn", "menu_btn", "guide_btn",
+        "dpad_up", "dpad_down", "dpad_left", "dpad_right"
+    ];
+
+    const inputState = {
+        steering: 0.0, throttle: 0, brake: 0, handbrake: 0,
+        y_btn: 0, x_btn: 0, a_btn: 0, lb: 0, rb: 0,
         dpad_up: 0, dpad_down: 0, dpad_left: 0, dpad_right: 0,
         view_btn: 0, menu_btn: 0, guide_btn: 0, rs_x: 0.0, rs_y: 0.0
     };
+
+    const DEFAULTS = {
+        invertSteering: false,
+        centerOffset: 0.0,
+        maxTilt: 10.0,
+        curve: 1.0,
+        deadzone: 1.2
+    };
+    const settings = { ...DEFAULTS };
+
+    try {
+        const saved = JSON.parse(localStorage.getItem("ezc.settings") || "{}");
+        if (saved && typeof saved === "object") {
+            settings.invertSteering = !!saved.invertSteering;
+            settings.centerOffset = number(saved.centerOffset, 0);
+            settings.maxTilt = clamp(number(saved.maxTilt, 10), 4, 30);
+            settings.curve = clamp(number(saved.curve, 1), 0.5, 2);
+            settings.deadzone = clamp(number(saved.deadzone, 1.2), 0, 8);
+        }
+    } catch (e) {}
+
+    let ws = null;
     let isConnected = false;
+    let reconnectTimer = null;
+    let reconnectDelay = 250;
+    let sendScheduled = false;
+    let sensorsStarted = false;
+    let wakeLock = null;
+    let lastRawTilt = null;
+    let inputGeneration = 0;
 
-    document.getElementById('initBtn').addEventListener('click', async () => {
-        try { if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen(); } catch (err) {}
-        
-        document.getElementById('initBtn').style.display = 'none';
-        const terminal = document.getElementById('boot-terminal');
-        terminal.style.display = 'block';
+    const leftStickCap = $("left-stick-cap");
+    const rightStickCap = $("right-stick-cap");
+    const steerDash = $("steerVal");
+    const statusTxt = $("status-txt");
+    const redlineDash = $("telemetry-dash");
+    const halo = $("bg-halo");
+    const rpmFill = $("rpm-fill");
+    const activeSources = new Map();
 
-        const lines = [
-            "> UPLINK SECURE: PORT 5000",
-            "> BYPASSING LOCAL FIREWALL...",
-            "> AUDITING SECURE PROTOCOLS...",
-            "> SYNCING HAPTIC DRIVERS...",
-            "> INITIALIZING GYROSCOPIC MATRIX...",
-            "> CALIBRATING DEADZONES [1.2°]",
-            "> CONFIRMING USER CREDENTIALS...",
-            "> CONNECTION ESTABLISHED."
-        ];
-
-        for (let i = 0; i < lines.length; i++) {
-            terminal.innerText += lines[i] + "\n";
-            await new Promise(r => setTimeout(r, 150)); 
-        }
-        
-        await new Promise(r => setTimeout(r, 400));
-        
-        terminal.innerHTML += "<br><span style='color: #00f3ff; text-shadow: 0 0 8px #00f3ff;'>PERSONALIZED UPLINK ACTIVE...</span><br>";
-        await new Promise(r => setTimeout(r, 400));
-        terminal.innerHTML += "<span style='color: #fff; text-shadow: 0 0 15px #fff; font-size: 24px; font-weight: bold;'>Welcome back, surx</span><br>";
-        
-        await new Promise(r => setTimeout(r, 1800));
-        
-        document.getElementById('initOverlay').style.opacity = '0';
-        setTimeout(() => {
-            document.getElementById('initOverlay').style.display = 'none';
-            initSensors();
-        }, 500);
-    });
-
-    function initSensors() {
-        try {
-            if (typeof window.DeviceOrientationEvent !== 'undefined' && typeof window.DeviceOrientationEvent.requestPermission === 'function') {
-                window.DeviceOrientationEvent.requestPermission().then(permissionState => {
-                    if (permissionState === 'granted') startSensors();
-                }).catch(e => { startSensors(); });
-            } else { startSensors(); }
-        } catch (err) { startSensors(); }
-        connectWebSocket();
+    function saveSettings() {
+        try { localStorage.setItem("ezc.settings", JSON.stringify(settings)); } catch (e) {}
     }
 
+    // ---- output: change-driven, coalesced to one send per display frame ----
+    function scheduleSend(immediate = false) {
+        // Discrete actions (press/release) go out immediately; continuous
+        // motion (gyro/touch move) is coalesced into the next display frame.
+        if (immediate) {
+            sendState();
+            return;
+        }
+        if (sendScheduled) return;
+        sendScheduled = true;
+        requestAnimationFrame(() => {
+            sendScheduled = false;
+            sendState();
+        });
+    }
+
+    function sendState() {
+        if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+        if (ws.bufferedAmount > 8192) return; // never build a queue of stale frames
+        ws.send(JSON.stringify(inputState));
+    }
+
+    // ---- websocket: immediate reconnect, works through HTTPS tunnels ----
     function connectWebSocket() {
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         try {
-            let protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
-            let wsUrl = protocol + window.location.host + "/ws"; 
-            ws = new WebSocket(wsUrl);
-            const statusTxt = document.getElementById('status-txt');
-            
-            ws.onopen = () => { 
-                isConnected = true; 
-                document.getElementById('guide-btn').parentElement.classList.add('connected'); 
-                statusTxt.innerText = "ONLINE"; statusTxt.style.color = "#00f3ff";
+            const protocol = location.protocol === "https:" ? "wss://" : "ws://";
+            ws = new WebSocket(protocol + location.host + "/ws");
+
+            ws.onopen = () => {
+                isConnected = true;
+                reconnectDelay = 250;
+                const guide = $("guide-btn");
+                if (guide && guide.parentElement) guide.parentElement.classList.add("connected");
+                statusTxt.innerText = "ONLINE";
+                statusTxt.style.color = "#00f3ff";
+                sendState();
             };
-            ws.onclose = () => { 
-                isConnected = false; 
-                document.getElementById('guide-btn').parentElement.classList.remove('connected'); 
-                statusTxt.innerText = "OFFLINE"; statusTxt.style.color = "#ff003c";
-                setTimeout(connectWebSocket, 3000); 
+
+            ws.onerror = () => {
+                try { ws.close(); } catch (e) {}
             };
-        } catch (err) {}
+
+            ws.onclose = () => {
+                isConnected = false;
+                const guide = $("guide-btn");
+                if (guide && guide.parentElement) guide.parentElement.classList.remove("connected");
+                statusTxt.innerText = "OFFLINE";
+                statusTxt.style.color = "#ff003c";
+                if (reconnectTimer) return;
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWebSocket();
+                }, reconnectDelay);
+                reconnectDelay = Math.min(reconnectDelay * 2, 2000);
+            };
+        } catch (e) {
+            if (!reconnectTimer) {
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWebSocket();
+                }, reconnectDelay);
+                reconnectDelay = Math.min(reconnectDelay * 2, 2000);
+            }
+        }
     }
 
-    function startSensors() {
-        const leftStickCap = document.getElementById('left-stick-cap');
-        const steerDash = document.getElementById('steerVal');
+    // ---- gyro steering ----
+    function screenAngle() {
+        if (screen.orientation && isNum(screen.orientation.angle)) return screen.orientation.angle;
+        if (isNum(window.orientation)) return window.orientation;
+        return 0;
+    }
 
-        window.addEventListener('deviceorientation', (event) => {
-            if (!event.beta) return;
-            let tilt = event.beta; 
-            if (window.orientation === -90) tilt = -tilt;
-            
-            let deadzone = 1.2;
-            if (Math.abs(tilt) < deadzone) { tilt = 0; } 
-            else { tilt = Math.sign(tilt) * (Math.abs(tilt) - deadzone); }
-            
-            let maxTiltAngle = 10.0; 
-            let rawSteering = tilt / maxTiltAngle; 
-            rawSteering = Math.max(-1.0, Math.min(1.0, rawSteering));
-            
-            let curvePower = 1.0; 
-            let finalSteering = Math.sign(rawSteering) * Math.pow(Math.abs(rawSteering), curvePower);
-            
-            inputState.steering = finalSteering;
-            
-            let displayAngle = (finalSteering * 90).toFixed(1);
-            steerDash.innerText = displayAngle + "°";
+    function rawTilt(event) {
+        if (!event || !isNum(event.beta)) return null;
+        let tilt = event.beta;
+        const angle = ((screenAngle() % 360) + 360) % 360;
+        // Landscape-secondary: same sign flip the original client used for -90.
+        if (angle === 270) tilt = -tilt;
+        return tilt;
+    }
 
-            let pixelOffset = finalSteering * 22; 
-            if(leftStickCap) leftStickCap.style.transform = `translateX(${pixelOffset}px)`;
-        });
+    function onOrientation(event) {
+        const raw = rawTilt(event);
+        if (raw === null) return;
+        lastRawTilt = raw;
 
-        const rightStick = document.getElementById('right-stick');
-        const rightCap = document.getElementById('right-stick-cap');
-        let rsRadius = 30; let rsRect = null;
+        let tilt = raw - settings.centerOffset;
+        if (settings.invertSteering) tilt = -tilt;
 
-        rightStick.addEventListener('touchstart', (e) => {
-            e.preventDefault(); rsRect = rightStick.getBoundingClientRect(); updateRightStick(e.touches[0]);
-        }, {passive: false});
-        rightStick.addEventListener('touchmove', (e) => { e.preventDefault(); updateRightStick(e.touches[0]); }, {passive: false});
-        rightStick.addEventListener('touchend', (e) => {
-            e.preventDefault(); inputState.rs_x = 0; inputState.rs_y = 0; rightCap.style.transform = `translate(0px, 0px)`;
-        });
+        if (Math.abs(tilt) < settings.deadzone) tilt = 0;
+        else tilt = Math.sign(tilt) * (Math.abs(tilt) - settings.deadzone);
 
-        function updateRightStick(touch) {
-            let cx = rsRect.left + rsRect.width / 2; let cy = rsRect.top + rsRect.height / 2;
-            let dx = touch.clientX - cx; let dy = touch.clientY - cy;
-            let distance = Math.sqrt(dx*dx + dy*dy);
-            if (distance > rsRadius) { dx = (dx / distance) * rsRadius; dy = (dy / distance) * rsRadius; }
-            rightCap.style.transform = `translate(${dx}px, ${dy}px)`;
-            inputState.rs_x = dx / rsRadius; inputState.rs_y = -(dy / rsRadius); 
+        const steering = clamp(tilt / settings.maxTilt, -1, 1);
+        const curved = Math.sign(steering) * Math.pow(Math.abs(steering), settings.curve);
+
+        inputState.steering = curved;
+        steerDash.innerText = (curved * 90).toFixed(1) + "°";
+        if (leftStickCap) leftStickCap.style.transform = `translateX(${curved * 22}px)`;
+        scheduleSend();
+    }
+
+    // ---- buttons (multi-touch safe, handles cancellation) ----
+    function setButton(key, source, pressed) {
+        let sources = activeSources.get(key);
+        if (!sources) {
+            sources = new Set();
+            activeSources.set(key, sources);
         }
+        if (pressed) sources.add(source);
+        else sources.delete(source);
+        inputState[key] = sources.size > 0 ? 1 : 0;
+    }
 
-        const bindButton = (id, key) => {
-            const el = document.getElementById(id);
-            if(!el) return;
-            el.addEventListener('touchstart', (e) => { 
-                e.preventDefault(); inputState[key] = 1; el.classList.add('active'); 
-                
-                if(id === 'rt') {
-                    document.getElementById('telemetry-dash').classList.add('redline');
-                    document.getElementById('bg-halo').classList.add('redline');
-                    document.getElementById('rpm-fill').style.width = '100%';
-                }
-            }, {passive: false});
-            
-            el.addEventListener('touchend', (e) => { 
-                e.preventDefault(); inputState[key] = 0; el.classList.remove('active'); 
-                
-                if(id === 'rt') {
-                    document.getElementById('telemetry-dash').classList.remove('redline');
-                    document.getElementById('bg-halo').classList.remove('redline');
-                    document.getElementById('rpm-fill').style.width = '0%';
-                }
-            }, {passive: false});
+    function bindButton(id, key) {
+        const el = $(id);
+        if (!el) return;
+        let touchId = null;
+        let generation = inputGeneration;
+
+        const press = (event) => {
+            if (generation !== inputGeneration) {
+                touchId = null;
+                generation = inputGeneration;
+            }
+            if (touchId !== null) return;
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) return;
+            event.preventDefault();
+            touchId = touch.identifier;
+            setButton(key, id, true);
+            el.classList.add("active");
+            if (id === "rt") setRedline(true);
+            scheduleSend(true);
         };
 
-        bindButton('rt', 'throttle'); bindButton('lt', 'brake');
-        bindButton('lb', 'lb'); bindButton('rb', 'rb');
-        bindButton('btnA', 'a_btn'); bindButton('btnX', 'x_btn'); bindButton('btnB', 'handbrake'); bindButton('btnY', 'y_btn');
-        bindButton('view-btn', 'view_btn'); bindButton('menu-btn', 'menu_btn'); bindButton('guide-btn', 'guide_btn');
-        bindButton('dpad-up', 'dpad_up'); bindButton('dpad-down', 'dpad_down'); bindButton('dpad-left', 'dpad_left'); bindButton('dpad-right', 'dpad_right');
-        bindButton('ebrake-btn', 'a_btn');
-
-        setInterval(() => {
-            if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify(inputState));
+        const release = (event) => {
+            if (generation !== inputGeneration) {
+                touchId = null;
+                generation = inputGeneration;
+                return;
             }
-        }, 16); 
+            if (touchId === null) return;
+            const ended = Array.from(event.changedTouches || []).some((t) => t.identifier === touchId);
+            if (!ended) return;
+            event.preventDefault();
+            touchId = null;
+            setButton(key, id, false);
+            el.classList.remove("active");
+            if (id === "rt") setRedline(false);
+            scheduleSend(true);
+        };
+
+        el.addEventListener("touchstart", press, { passive: false });
+        el.addEventListener("touchend", release, { passive: false });
+        el.addEventListener("touchcancel", release, { passive: false });
     }
+
+    // ---- right thumbstick ----
+    function setupRightStick() {
+        const el = $("right-stick");
+        if (!el) return;
+        const radius = 30;
+        let rect = null;
+        let touchId = null;
+        let generation = inputGeneration;
+
+        const update = (touch) => {
+            if (!rect) rect = el.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            let dx = touch.clientX - cx;
+            let dy = touch.clientY - cy;
+            const distance = Math.hypot(dx, dy);
+            if (distance > radius) {
+                dx = (dx / distance) * radius;
+                dy = (dy / distance) * radius;
+            }
+            rightStickCap.style.transform = `translate(${dx}px, ${dy}px)`;
+            inputState.rs_x = dx / radius;
+            inputState.rs_y = -dy / radius;
+            scheduleSend();
+        };
+
+        el.addEventListener("touchstart", (event) => {
+            if (generation !== inputGeneration) {
+                touchId = null;
+                generation = inputGeneration;
+            }
+            if (touchId !== null) return;
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) return;
+            event.preventDefault();
+            touchId = touch.identifier;
+            rect = el.getBoundingClientRect();
+            update(touch);
+            scheduleSend(true);
+        }, { passive: false });
+
+        el.addEventListener("touchmove", (event) => {
+            if (touchId === null) return;
+            const touch = Array.from(event.touches || []).find((t) => t.identifier === touchId);
+            if (!touch) return;
+            event.preventDefault();
+            update(touch);
+        }, { passive: false });
+
+        const release = (event) => {
+            if (generation !== inputGeneration) {
+                touchId = null;
+                generation = inputGeneration;
+                return;
+            }
+            if (touchId === null) return;
+            const ended = Array.from(event.changedTouches || []).some((t) => t.identifier === touchId);
+            if (!ended) return;
+            event.preventDefault();
+            touchId = null;
+            rect = null;
+            inputState.rs_x = 0;
+            inputState.rs_y = 0;
+            rightStickCap.style.transform = "translate(0px, 0px)";
+            scheduleSend(true);
+        };
+        el.addEventListener("touchend", release, { passive: false });
+        el.addEventListener("touchcancel", release, { passive: false });
+    }
+
+    // ---- safety ----
+    function setRedline(on) {
+        if (redlineDash) redlineDash.classList.toggle("redline", on);
+        if (halo) halo.classList.toggle("redline", on);
+        if (rpmFill) rpmFill.style.width = on ? "100%" : "0%";
+    }
+
+    function releaseAll() {
+        inputGeneration++;
+        activeSources.clear();
+        for (const key of BUTTON_KEYS) inputState[key] = 0;
+        inputState.throttle = 0;
+        inputState.brake = 0;
+        inputState.rs_x = 0;
+        inputState.rs_y = 0;
+        inputState.steering = 0;
+        document.querySelectorAll(".active").forEach((el) => {
+            if (el.id !== "tune-btn") el.classList.remove("active");
+        });
+        if (rightStickCap) rightStickCap.style.transform = "translate(0px, 0px)";
+        if (leftStickCap) leftStickCap.style.transform = "translateX(0px)";
+        if (steerDash) steerDash.innerText = "0.0°";
+        setRedline(false);
+        scheduleSend(true);
+    }
+
+    // ---- wake lock ----
+    async function requestWakeLock() {
+        try {
+            if (!("wakeLock" in navigator) || wakeLock) return;
+            wakeLock = await navigator.wakeLock.request("screen");
+            wakeLock.addEventListener("release", () => { wakeLock = null; });
+        } catch (e) {}
+    }
+
+    // ---- steering tuning UI ----
+    function updateTuneUI() {
+        const invert = $("tune-invert");
+        const sens = $("tune-sens");
+        const dz = $("tune-dz");
+        if (invert) invert.checked = settings.invertSteering;
+        if (sens) sens.value = String(settings.maxTilt);
+        if (dz) dz.value = String(settings.deadzone);
+        const sensVal = $("tune-sens-val");
+        const dzVal = $("tune-dz-val");
+        if (sensVal) sensVal.innerText = settings.maxTilt.toFixed(0) + "°";
+        if (dzVal) dzVal.innerText = settings.deadzone.toFixed(1) + "°";
+    }
+
+    function openTune(open) {
+        const panel = $("tune-panel");
+        const backdrop = $("tune-backdrop");
+        const button = $("tune-btn");
+        if (!panel || !backdrop) return;
+        panel.classList.toggle("open", open);
+        backdrop.classList.toggle("open", open);
+        if (button) button.classList.toggle("active", open);
+        if (open) updateTuneUI();
+    }
+
+    function tuneStatus(text) {
+        const el = $("tune-status");
+        if (!el) return;
+        el.innerText = text;
+        if (text) {
+            setTimeout(() => { if (el.innerText === text) el.innerText = ""; }, 1600);
+        }
+    }
+
+    function setupTuneUI() {
+        const button = $("tune-btn");
+        if (!button) return;
+
+        button.addEventListener("click", () => {
+            const panel = $("tune-panel");
+            openTune(!panel.classList.contains("open"));
+        });
+        $("tune-backdrop").addEventListener("click", () => openTune(false));
+        $("tune-close").addEventListener("click", () => openTune(false));
+
+        $("tune-invert").addEventListener("change", (event) => {
+            settings.invertSteering = event.target.checked;
+            saveSettings();
+        });
+
+        $("tune-sens").addEventListener("input", (event) => {
+            settings.maxTilt = clamp(number(event.target.value, 10), 4, 30);
+            $("tune-sens-val").innerText = settings.maxTilt.toFixed(0) + "°";
+            saveSettings();
+        });
+
+        $("tune-dz").addEventListener("input", (event) => {
+            settings.deadzone = clamp(number(event.target.value, 1.2), 0, 8);
+            $("tune-dz-val").innerText = settings.deadzone.toFixed(1) + "°";
+            saveSettings();
+        });
+
+        $("tune-cal").addEventListener("click", () => {
+            if (lastRawTilt === null) {
+                tuneStatus("NO GYRO DATA YET");
+                return;
+            }
+            settings.centerOffset = lastRawTilt;
+            saveSettings();
+            tuneStatus("CENTER CALIBRATED");
+        });
+
+        $("tune-reset").addEventListener("click", () => {
+            Object.assign(settings, DEFAULTS);
+            settings.centerOffset = 0;
+            saveSettings();
+            updateTuneUI();
+            tuneStatus("DEFAULTS RESTORED");
+        });
+    }
+
+    // ---- boot ----
+    function startSensors() {
+        if (sensorsStarted) return;
+        sensorsStarted = true;
+
+        window.addEventListener("deviceorientation", onOrientation);
+        setupRightStick();
+
+        bindButton("rt", "throttle");
+        bindButton("lt", "brake");
+        bindButton("lb", "lb");
+        bindButton("rb", "rb");
+        bindButton("btnA", "a_btn");
+        bindButton("btnX", "x_btn");
+        bindButton("btnB", "handbrake");
+        bindButton("btnY", "y_btn");
+        bindButton("view-btn", "view_btn");
+        bindButton("menu-btn", "menu_btn");
+        bindButton("guide-btn", "guide_btn");
+        bindButton("dpad-up", "dpad_up");
+        bindButton("dpad-down", "dpad_down");
+        bindButton("dpad-left", "dpad_left");
+        bindButton("dpad-right", "dpad_right");
+        bindButton("ebrake-btn", "a_btn");
+    }
+
+    function initSensors() {
+        // Must run inside the tap handler on iOS for requestPermission().
+        const start = () => startSensors();
+        try {
+            if (typeof DeviceOrientationEvent !== "undefined" &&
+                typeof DeviceOrientationEvent.requestPermission === "function") {
+                DeviceOrientationEvent.requestPermission().then(start).catch(start);
+            } else {
+                start();
+            }
+        } catch (e) {
+            start();
+        }
+    }
+
+    $("initBtn").addEventListener("click", () => {
+        initSensors(); // stays in the user-gesture stack for iOS permission
+        try {
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        } catch (e) {}
+        try {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock("landscape").catch(() => {});
+            }
+        } catch (e) {}
+        requestWakeLock();
+
+        $("initBtn").style.display = "none";
+        const terminal = $("boot-terminal");
+        terminal.style.display = "block";
+        terminal.innerText = [
+            "> UPLINK SECURE: PORT 5000",
+            "> GYRO MATRIX: ONLINE",
+            "> DEADZONE: " + settings.deadzone.toFixed(1) + "°",
+            "> CONNECTION ESTABLISHED."
+        ].join("\n");
+        terminal.innerHTML +=
+            "<br><span style='color:#00f3ff;text-shadow:0 0 8px #00f3ff;'>UPLINK ACTIVE...</span><br>" +
+            "<span style='color:#fff;text-shadow:0 0 15px #fff;font-size:24px;font-weight:bold;'>Welcome back, surx</span>";
+
+        setTimeout(() => {
+            $("initOverlay").style.opacity = "0";
+            setTimeout(() => { $("initOverlay").style.display = "none"; }, 190);
+        }, 120);
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (document.hidden) releaseAll();
+        else requestWakeLock();
+    });
+    window.addEventListener("blur", releaseAll);
+    window.addEventListener("pagehide", releaseAll);
+    document.addEventListener("contextmenu", (event) => event.preventDefault());
+
+    // Connect immediately; only the motion sensors need the ignition tap.
+    // The 10 Hz heartbeat keeps the server watchdog happy while a control is
+    // held without any sensor movement, and changes still go out next frame.
+    setupTuneUI();
+    updateTuneUI();
+    connectWebSocket();
+    setInterval(() => { if (isConnected) sendState(); }, 100);
+
 </script>
 </body>
 </html>
