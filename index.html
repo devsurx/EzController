@@ -154,6 +154,10 @@
             min-height: 30px; text-align: center; font-family: 'Share Tech Mono', monospace;
             font-size: 10px; line-height: 1.5; color: #7d90ab;
         }
+        #gyro-status {
+            min-height: 14px; text-align: center; font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; letter-spacing: 1px; line-height: 1.4; color: #7d90ab;
+        }
         #preset-btn { cursor: pointer; color: #00f3ff; border-color: rgba(0,243,255,0.45) !important; }
         #preset-btn.active { background: rgba(0,243,255,0.15); }
 
@@ -298,6 +302,7 @@
         <button class="preset-opt" data-preset="cozy" aria-pressed="false">🌾 COZY<small>Stardew / 2D</small></button>
     </div>
     <div id="preset-help"></div>
+    <div id="gyro-status">GYRO: WAITING</div>
 
     <div class="tune-section-title racing-only">STEERING TUNE</div>
     <label class="tune-row racing-only"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
@@ -465,6 +470,9 @@
     let wakeLock = null;
     let lastRawTilt = null;
     let inputGeneration = 0;
+    let gyroEvents = 0;
+    let gyroDenied = false;
+    let lastGyroUi = 0;
 
     const leftStickCap = $("left-stick-cap");
     const rightStickCap = $("right-stick-cap");
@@ -557,8 +565,12 @@
     }
 
     function rawTilt(event) {
-        if (!event || !isNum(event.beta)) return null;
-        let tilt = event.beta;
+        if (!event) return null;
+        // gamma is the left/right roll — the natural steering tilt. beta is
+        // front/back pitch, which barely changes when the phone is tilted like
+        // a wheel, so it is only a fallback for browsers without gamma.
+        let tilt = isNum(event.gamma) ? event.gamma : event.beta;
+        if (!isNum(tilt)) return null;
         const angle = ((screenAngle() % 360) + 360) % 360;
         // Landscape-secondary: same sign flip the original client used for -90.
         if (angle === 270) tilt = -tilt;
@@ -569,9 +581,18 @@
         const raw = rawTilt(event);
         if (raw === null) return;
         lastRawTilt = raw;
+        gyroEvents++;
 
         // Cozy preset uses the touch left stick, not the gyro.
         if (currentPreset !== "racing") return;
+
+        const now = performance.now();
+        if (now - lastGyroUi > 120) {
+            lastGyroUi = now;
+            const beta = isNum(event.beta) ? event.beta.toFixed(0) : "--";
+            const gamma = isNum(event.gamma) ? event.gamma.toFixed(0) : "--";
+            setGyroStatus("GYRO: LIVE · \u03b2 " + beta + "\u00b0 \u03b3 " + gamma + "\u00b0", "#00ff66");
+        }
 
         let tilt = raw - settings.centerOffset;
         if (settings.invertSteering) tilt = -tilt;
@@ -829,6 +850,19 @@
     }
 
     // ---- game presets ----
+    function gyroNeedsHttps() {
+        return location.protocol !== "https:" &&
+            location.hostname !== "localhost" &&
+            location.hostname !== "127.0.0.1";
+    }
+
+    function setGyroStatus(text, color) {
+        const el = $("gyro-status");
+        if (!el) return;
+        el.innerText = text;
+        el.style.color = color || "#7d90ab";
+    }
+
     function updatePresetUI() {
         document.querySelectorAll(".preset-opt").forEach((button) => {
             const selected = button.dataset.preset === currentPreset;
@@ -864,6 +898,16 @@
             leftStickCap.style.transform = "translate(0px, 0px)";
         }
         if (steerDash) steerDash.innerText = cozy ? "0.0, 0.0" : "0.0°";
+
+        if (cozy) {
+            setGyroStatus("GYRO: OFF IN COZY PRESET", "#7d90ab");
+        } else if (gyroNeedsHttps()) {
+            setGyroStatus("GYRO: NEEDS HTTPS \u2014 RUN controller up", "#ffcc00");
+        } else if (gyroEvents > 0) {
+            setGyroStatus("GYRO: LIVE", "#00ff66");
+        } else {
+            setGyroStatus("GYRO: TAP IGNITION AND ALLOW MOTION", "#00f3ff");
+        }
 
         updatePresetUI();
         try { localStorage.setItem("ezc.preset", name); } catch (e) {}
@@ -992,6 +1036,18 @@
         bindButton("dpad-left", "dpad_left");
         bindButton("dpad-right", "dpad_right");
         bindButton("ebrake-btn", "a_btn");
+
+        // If the browser silently withholds sensor events, say why instead of
+        // leaving the steering readout at 0 forever.
+        setTimeout(() => {
+            if (currentPreset !== "racing" || gyroEvents > 0 || gyroDenied) return;
+            setGyroStatus(
+                gyroNeedsHttps()
+                    ? "GYRO BLOCKED \u2014 OPEN THE HTTPS URL"
+                    : "GYRO: NO EVENTS \u2014 ALLOW MOTION ACCESS",
+                "#ff6b7f"
+            );
+        }, 1800);
     }
 
     function initSensors() {
@@ -1000,7 +1056,11 @@
         try {
             if (typeof DeviceOrientationEvent !== "undefined" &&
                 typeof DeviceOrientationEvent.requestPermission === "function") {
-                DeviceOrientationEvent.requestPermission().then(start).catch(start);
+                DeviceOrientationEvent.requestPermission().then(start).catch(() => {
+                    gyroDenied = true;
+                    setGyroStatus("GYRO: MOTION PERMISSION DENIED", "#ff6b7f");
+                    startSensors();
+                });
             } else {
                 start();
             }

@@ -299,6 +299,27 @@ EZC_PORT=5001 controller
 * If using a tunnel, wait a few seconds for the URL to become active.
 * Check the log: `controller logs -f`.
 
+### Steering counter stays at 0.0°
+
+Open **⚙ SETTINGS** and read the **GYRO** line — it tells you what is wrong:
+
+| GYRO line | Fix |
+| --- | --- |
+| `OFF IN COZY PRESET` | Switch the preset to **🏎️ RACING**. Cozy uses the touch left stick and intentionally ignores the gyro. |
+| `NEEDS HTTPS` / `BLOCKED` | Open the **https://** URL from `controller up`. Mobile browsers block motion sensors on plain `http://` LAN addresses. |
+| `PERMISSION DENIED` | Allow Motion & Orientation Access for the browser, then reload and tap **SYS.IGNITION** again. On iOS: Settings → Safari → Motion & Orientation Access. |
+| `NO EVENTS` | The browser is not delivering sensor data. Try Chrome/Safari over HTTPS, and make sure the phone is not in a low-power/battery-saver mode. |
+| `LIVE · β … γ …` | Sensors are working; tap **CALIBRATE CENTER** while holding the phone in your driving position. |
+
+Steering uses the **left/right roll** axis (gamma). Tilt the phone like a seesaw — do not rotate it flat like a steering wheel. If left and right are reversed, tick **INVERT**.
+
+Quick tunnel reminder:
+
+```bash
+controller up
+# open the printed https://...trycloudflare.com URL on the phone
+```
+
 ### Steering is inverted or off-center
 
 Open **⚙ SETTINGS**:
