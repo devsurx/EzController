@@ -114,6 +114,7 @@
             box-shadow: 0 0 45px rgba(0,243,255,0.22), inset 0 0 30px rgba(0,243,255,0.04);
             font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;
             flex-direction: column; gap: 13px;
+            max-height: 88vh; overflow-y: auto; touch-action: pan-y;
             clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
         }
         #tune-panel.open { display: flex; }
@@ -131,6 +132,39 @@
         #tune-panel button:active { background: rgba(0,243,255,0.2); }
         #tune-reset { color: #ff6b7f; border-color: rgba(255,0,60,0.4); background: rgba(255,0,60,0.06); }
         #tune-status { min-height: 16px; text-align: center; font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #00ff66; }
+
+        .tune-section-title {
+            font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px;
+            color: #4a5c75; border-bottom: 1px solid rgba(0,243,255,0.12); padding-bottom: 4px;
+        }
+        #preset-options { display: flex; gap: 9px; }
+        #tune-panel .preset-opt {
+            flex: 1 1 0; padding: 9px 7px; font-size: 13px; line-height: 1.2;
+            letter-spacing: 1px; text-transform: none;
+        }
+        #tune-panel .preset-opt small {
+            display: block; font-size: 9px; letter-spacing: 1px; opacity: 0.65;
+            margin-top: 3px; text-transform: uppercase;
+        }
+        #tune-panel .preset-opt.selected {
+            color: #00ff66; border-color: #00ff66; background: rgba(0,255,102,0.12);
+            box-shadow: 0 0 18px rgba(0,255,102,0.18), inset 0 0 12px rgba(0,255,102,0.06);
+        }
+        #preset-help {
+            min-height: 30px; text-align: center; font-family: 'Share Tech Mono', monospace;
+            font-size: 10px; line-height: 1.5; color: #7d90ab;
+        }
+        #preset-btn { cursor: pointer; color: #00f3ff; border-color: rgba(0,243,255,0.45) !important; }
+        #preset-btn.active { background: rgba(0,243,255,0.15); }
+
+        .cozy-only { display: none !important; }
+        body.preset-cozy .cozy-only { display: inline-block !important; }
+        body.preset-cozy .racing-only { display: none !important; }
+        body.preset-cozy #rpm-container { visibility: hidden; }
+        body.preset-cozy #ebrake-btn { visibility: hidden; pointer-events: none; transition: none; }
+        body.preset-cozy .trigger { font-size: 15px; }
+        body.preset-cozy .bumper { font-size: 12px; }
+        body.preset-cozy #steerVal { font-size: 16px; }
 
         #telemetry-dash {
             width: 300px; height: 50px; background: rgba(5, 8, 14, 0.85);
@@ -255,13 +289,22 @@
 </div>
 
 <div id="tune-backdrop"></div>
-<div id="tune-panel" role="dialog" aria-label="Steering tuning">
-    <div id="tune-title">STEERING TUNE</div>
-    <label class="tune-row"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
-    <label class="tune-row"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">10°</b></label>
-    <label class="tune-row"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">1.2°</b></label>
-    <button id="tune-cal">CALIBRATE CENTER</button>
-    <button id="tune-reset">RESET DEFAULTS</button>
+<div id="tune-panel" role="dialog" aria-label="Controller settings">
+    <div id="tune-title">CONTROLLER SETTINGS</div>
+
+    <div class="tune-section-title">GAME PRESET</div>
+    <div id="preset-options">
+        <button class="preset-opt" data-preset="racing" aria-pressed="true">🏎️ RACING<small>Gyro wheel</small></button>
+        <button class="preset-opt" data-preset="cozy" aria-pressed="false">🌾 COZY<small>Stardew / 2D</small></button>
+    </div>
+    <div id="preset-help"></div>
+
+    <div class="tune-section-title racing-only">STEERING TUNE</div>
+    <label class="tune-row racing-only"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
+    <label class="tune-row racing-only"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">10°</b></label>
+    <label class="tune-row racing-only"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">1.2°</b></label>
+    <button id="tune-cal" class="racing-only">CALIBRATE CENTER</button>
+    <button id="tune-reset" class="racing-only">RESET DEFAULTS</button>
     <button id="tune-close">CLOSE</button>
     <div id="tune-status"></div>
 </div>
@@ -271,8 +314,10 @@
         <div id="rpm-container"><div id="rpm-fill"></div></div>
         <div id="telemetry-dash-container">
             <div class="side-hud">
-                <span>ABS: STNDBY</span>
-                <span>TCS: ACTIVE</span>
+                <span class="racing-only">ABS: STNDBY</span>
+                <span class="racing-only">TCS: ACTIVE</span>
+                <span class="cozy-only">A: ACTION</span>
+                <span class="cozy-only">X: TOOL</span>
             </div>
             
             <div id="telemetry-dash">
@@ -281,15 +326,18 @@
                     <span class="dash-value" id="status-txt" style="color:#ff003c;">OFFLINE</span>
                 </div>
                 <div>
-                    <span class="dash-label">STEERING</span>
+                    <span class="dash-label" id="steer-label">STEERING</span>
                     <span class="dash-value" id="steerVal">0.0°</span>
                 </div>
             </div>
             
             <div class="side-hud">
-                <span>OIL: 212°F</span>
-                <span>BST: 14 PSI</span>
-                <span id="tune-btn" role="button" aria-label="Steering settings">⚙ TUNE</span>
+                <span class="racing-only">OIL: 212°F</span>
+                <span class="racing-only">BST: 14 PSI</span>
+                <span class="cozy-only">B: CANCEL</span>
+                <span class="cozy-only">Y: CRAFT</span>
+                <span id="preset-btn" role="button" aria-label="Game preset">PRESET: RACING</span>
+                <span id="tune-btn" role="button" aria-label="Controller settings">⚙ SETTINGS</span>
             </div>
         </div>
     </div>
@@ -333,13 +381,13 @@
     <div id="bottom-row">
         <div class="pedal-cluster">
             <div class="trigger fat-finger" id="lt">BRAKE</div>
-            <div class="bumper fat-finger" id="rb">GEAR +</div>
+            <div class="bumper fat-finger" id="lb">GEAR −</div>
         </div>
 
         <div class="fat-finger" id="ebrake-btn">E-BRAKE</div>
         
         <div class="pedal-cluster">
-            <div class="bumper fat-finger" id="lb">GEAR -</div>
+            <div class="bumper fat-finger" id="rb">GEAR +</div>
             <div class="trigger fat-finger" id="rt">GAS</div>
         </div>
     </div>
@@ -360,7 +408,7 @@
     ];
 
     const inputState = {
-        steering: 0.0, throttle: 0, brake: 0, handbrake: 0,
+        steering: 0.0, ls_x: 0.0, ls_y: 0.0, throttle: 0, brake: 0, handbrake: 0,
         y_btn: 0, x_btn: 0, a_btn: 0, lb: 0, rb: 0,
         dpad_up: 0, dpad_down: 0, dpad_left: 0, dpad_right: 0,
         view_btn: 0, menu_btn: 0, guide_btn: 0, rs_x: 0.0, rs_y: 0.0
@@ -384,6 +432,28 @@
             settings.curve = clamp(number(saved.curve, 1), 0.5, 2);
             settings.deadzone = clamp(number(saved.deadzone, 1.2), 0, 8);
         }
+    } catch (e) {}
+
+    // Game presets change the on-screen labels and which control surfaces drive
+    // the pad. Racing uses gyro steering; Cozy drives the full left stick and
+    // is mapped for Stardew Valley / 2D games.
+    const PRESETS = {
+        racing: {
+            name: "RACING",
+            help: "Tilt to steer · LT/RT gas & brake · B handbrake · LB/RB gears",
+            labels: { lt: "BRAKE", rt: "GAS", lb: "GEAR −", rb: "GEAR +" }
+        },
+        cozy: {
+            name: "COZY",
+            help: "Left stick move · A action · X tool · Y craft · B cancel · LT/RT item · LB/RB toolbar",
+            labels: { lt: "ITEM ◀", rt: "ITEM ▶", lb: "TOOLBAR ◀", rb: "TOOLBAR ▶" }
+        }
+    };
+
+    let currentPreset = "racing";
+    try {
+        const savedPreset = localStorage.getItem("ezc.preset");
+        if (PRESETS[savedPreset]) currentPreset = savedPreset;
     } catch (e) {}
 
     let ws = null;
@@ -500,6 +570,9 @@
         if (raw === null) return;
         lastRawTilt = raw;
 
+        // Cozy preset uses the touch left stick, not the gyro.
+        if (currentPreset !== "racing") return;
+
         let tilt = raw - settings.centerOffset;
         if (settings.invertSteering) tilt = -tilt;
 
@@ -510,6 +583,8 @@
         const curved = Math.sign(steering) * Math.pow(Math.abs(steering), settings.curve);
 
         inputState.steering = curved;
+        inputState.ls_x = curved;
+        inputState.ls_y = 0;
         steerDash.innerText = (curved * 90).toFixed(1) + "°";
         if (leftStickCap) leftStickCap.style.transform = `translateX(${curved * 22}px)`;
         scheduleSend();
@@ -545,7 +620,7 @@
             touchId = touch.identifier;
             setButton(key, id, true);
             el.classList.add("active");
-            if (id === "rt") setRedline(true);
+            if (id === "rt") setRedline(currentPreset === "racing");
             scheduleSend(true);
         };
 
@@ -641,6 +716,81 @@
         el.addEventListener("touchcancel", release, { passive: false });
     }
 
+    // ---- left thumbstick (cozy preset) ----
+    function setupLeftStick() {
+        const el = $("left-stick");
+        if (!el) return;
+        const radius = 30;
+        let rect = null;
+        let touchId = null;
+        let generation = inputGeneration;
+
+        const update = (touch) => {
+            if (!rect) rect = el.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            let dx = touch.clientX - cx;
+            let dy = touch.clientY - cy;
+            const distance = Math.hypot(dx, dy);
+            if (distance > radius) {
+                dx = (dx / distance) * radius;
+                dy = (dy / distance) * radius;
+            }
+            leftStickCap.style.transform = `translate(${dx}px, ${dy}px)`;
+            inputState.ls_x = dx / radius;
+            inputState.ls_y = -dy / radius;
+            inputState.steering = inputState.ls_x; // legacy field
+            steerDash.innerText = inputState.ls_x.toFixed(1) + ", " + inputState.ls_y.toFixed(1);
+            scheduleSend();
+        };
+
+        el.addEventListener("touchstart", (event) => {
+            if (currentPreset !== "cozy") return;
+            if (generation !== inputGeneration) {
+                touchId = null;
+                generation = inputGeneration;
+            }
+            if (touchId !== null) return;
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) return;
+            event.preventDefault();
+            touchId = touch.identifier;
+            rect = el.getBoundingClientRect();
+            update(touch);
+            scheduleSend(true);
+        }, { passive: false });
+
+        el.addEventListener("touchmove", (event) => {
+            if (currentPreset !== "cozy" || touchId === null) return;
+            const touch = Array.from(event.touches || []).find((t) => t.identifier === touchId);
+            if (!touch) return;
+            event.preventDefault();
+            update(touch);
+        }, { passive: false });
+
+        const release = (event) => {
+            if (generation !== inputGeneration) {
+                touchId = null;
+                generation = inputGeneration;
+                return;
+            }
+            if (touchId === null) return;
+            const ended = Array.from(event.changedTouches || []).some((t) => t.identifier === touchId);
+            if (!ended) return;
+            event.preventDefault();
+            touchId = null;
+            rect = null;
+            inputState.ls_x = 0;
+            inputState.ls_y = 0;
+            inputState.steering = 0;
+            leftStickCap.style.transform = "translate(0px, 0px)";
+            if (currentPreset === "cozy") steerDash.innerText = "0.0, 0.0";
+            scheduleSend(true);
+        };
+        el.addEventListener("touchend", release, { passive: false });
+        el.addEventListener("touchcancel", release, { passive: false });
+    }
+
     // ---- safety ----
     function setRedline(on) {
         if (redlineDash) redlineDash.classList.toggle("redline", on);
@@ -657,12 +807,14 @@
         inputState.rs_x = 0;
         inputState.rs_y = 0;
         inputState.steering = 0;
+        inputState.ls_x = 0;
+        inputState.ls_y = 0;
         document.querySelectorAll(".active").forEach((el) => {
-            if (el.id !== "tune-btn") el.classList.remove("active");
+            if (el.id !== "tune-btn" && el.id !== "preset-btn") el.classList.remove("active");
         });
         if (rightStickCap) rightStickCap.style.transform = "translate(0px, 0px)";
-        if (leftStickCap) leftStickCap.style.transform = "translateX(0px)";
-        if (steerDash) steerDash.innerText = "0.0°";
+        if (leftStickCap) leftStickCap.style.transform = "translate(0px, 0px)";
+        if (steerDash) steerDash.innerText = currentPreset === "cozy" ? "0.0, 0.0" : "0.0°";
         setRedline(false);
         scheduleSend(true);
     }
@@ -674,6 +826,49 @@
             wakeLock = await navigator.wakeLock.request("screen");
             wakeLock.addEventListener("release", () => { wakeLock = null; });
         } catch (e) {}
+    }
+
+    // ---- game presets ----
+    function updatePresetUI() {
+        document.querySelectorAll(".preset-opt").forEach((button) => {
+            const selected = button.dataset.preset === currentPreset;
+            button.classList.toggle("selected", selected);
+            button.setAttribute("aria-pressed", selected ? "true" : "false");
+        });
+        const help = $("preset-help");
+        if (help) help.innerText = PRESETS[currentPreset].help;
+    }
+
+    function applyPreset(name, options = {}) {
+        if (!PRESETS[name]) name = "racing";
+        if (options.release !== false) releaseAll();
+
+        currentPreset = name;
+        const preset = PRESETS[name];
+        const cozy = name === "cozy";
+
+        document.body.classList.toggle("preset-racing", !cozy);
+        document.body.classList.toggle("preset-cozy", cozy);
+
+        for (const [id, label] of Object.entries(preset.labels)) {
+            const el = $(id);
+            if (el) el.innerText = label;
+        }
+
+        const steerLabel = $("steer-label");
+        if (steerLabel) steerLabel.innerText = cozy ? "MOVE" : "STEERING";
+        const presetButton = $("preset-btn");
+        if (presetButton) presetButton.innerText = "PRESET: " + preset.name;
+        if (leftStickCap) {
+            leftStickCap.style.transition = cozy ? "none" : "transform 0.05s ease-out";
+            leftStickCap.style.transform = "translate(0px, 0px)";
+        }
+        if (steerDash) steerDash.innerText = cozy ? "0.0, 0.0" : "0.0°";
+
+        updatePresetUI();
+        try { localStorage.setItem("ezc.preset", name); } catch (e) {}
+        // releaseAll() already sent a neutral frame when it ran.
+        if (!options.silent && options.release === false) scheduleSend(true);
     }
 
     // ---- steering tuning UI ----
@@ -698,7 +893,12 @@
         panel.classList.toggle("open", open);
         backdrop.classList.toggle("open", open);
         if (button) button.classList.toggle("active", open);
-        if (open) updateTuneUI();
+        const presetButton = $("preset-btn");
+        if (presetButton) presetButton.classList.toggle("active", open);
+        if (open) {
+            updateTuneUI();
+            updatePresetUI();
+        }
     }
 
     function tuneStatus(text) {
@@ -717,6 +917,16 @@
         button.addEventListener("click", () => {
             const panel = $("tune-panel");
             openTune(!panel.classList.contains("open"));
+        });
+        $("preset-btn").addEventListener("click", () => {
+            const panel = $("tune-panel");
+            openTune(!panel.classList.contains("open"));
+        });
+        document.querySelectorAll(".preset-opt").forEach((option) => {
+            option.addEventListener("click", () => {
+                applyPreset(option.dataset.preset);
+                tuneStatus(PRESETS[currentPreset].name + " PRESET LOADED");
+            });
         });
         $("tune-backdrop").addEventListener("click", () => openTune(false));
         $("tune-close").addEventListener("click", () => openTune(false));
@@ -763,6 +973,7 @@
         sensorsStarted = true;
 
         window.addEventListener("deviceorientation", onOrientation);
+        setupLeftStick();
         setupRightStick();
 
         bindButton("rt", "throttle");
@@ -817,8 +1028,10 @@
         terminal.style.display = "block";
         terminal.innerText = [
             "> UPLINK SECURE: PORT 5000",
-            "> GYRO MATRIX: ONLINE",
-            "> DEADZONE: " + settings.deadzone.toFixed(1) + "°",
+            "> PRESET: " + PRESETS[currentPreset].name,
+            currentPreset === "racing"
+                ? "> GYRO MATRIX: ONLINE / DEADZONE " + settings.deadzone.toFixed(1) + "°"
+                : "> LEFT STICK: ONLINE / TOUCH MOVE",
             "> CONNECTION ESTABLISHED."
         ].join("\n");
         terminal.innerHTML +=
@@ -844,6 +1057,7 @@
     // held without any sensor movement, and changes still go out next frame.
     setupTuneUI();
     updateTuneUI();
+    applyPreset(currentPreset, { silent: true, release: false });
     connectWebSocket();
     setInterval(() => { if (isConnected) sendState(); }, 100);
 

@@ -33,9 +33,17 @@ BUTTON_BITS: dict[str, int] = {name: 1 << i for i, name in enumerate(BUTTON_KEYS
 
 @dataclass(slots=True)
 class InputState:
-    """Fully normalised controller state."""
+    """Fully normalised controller state.
+
+    ``steering`` is the racing-profile axis. ``ls_x``/``ls_y`` are the full
+    left-stick vector used by gamepad profiles such as the cozy/Stardew layout.
+    Old clients that only send ``steering`` keep working because ``ls_x``
+    falls back to it while parsing.
+    """
 
     steering: float = 0.0
+    ls_x: float = 0.0
+    ls_y: float = 0.0
     throttle: float = 0.0
     brake: float = 0.0
     rs_x: float = 0.0
@@ -81,8 +89,12 @@ def parse_message(raw: str | bytes) -> InputState:
         if value:
             buttons |= bit
 
+    steering = _number(data, "steering")
     return InputState(
-        steering=_number(data, "steering"),
+        steering=steering,
+        # Backward compatible: older clients only send "steering".
+        ls_x=_number(data, "ls_x", steering),
+        ls_y=_number(data, "ls_y"),
         throttle=_number(data, "throttle", 0.0, 0.0, 1.0),
         brake=_number(data, "brake", 0.0, 0.0, 1.0),
         rs_x=_number(data, "rs_x"),

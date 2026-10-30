@@ -221,8 +221,8 @@ class LinuxPad(Pad):
         last = self._last_abs
 
         values = (
-            (ABS_X, _axis(state.steering)),
-            (ABS_Y, 0),
+            (ABS_X, _axis(state.ls_x)),
+            (ABS_Y, _axis(state.ls_y)),
             (ABS_RX, _axis(state.rs_x)),
             (ABS_RY, _axis(state.rs_y)),
             (ABS_Z, _trigger(state.brake)),
@@ -338,7 +338,7 @@ class WindowsPad(Pad):
         self._buttons = 0
 
     def apply(self, state: InputState) -> None:
-        self._pad.left_joystick_float(x_value_float=state.steering, y_value_float=0.0)
+        self._pad.left_joystick_float(x_value_float=state.ls_x, y_value_float=state.ls_y)
         self._pad.right_joystick_float(x_value_float=state.rs_x, y_value_float=state.rs_y)
         self._pad.left_trigger_float(value_float=state.brake)
         self._pad.right_trigger_float(value_float=state.throttle)
@@ -387,8 +387,10 @@ class MockPad(Pad):
                 name for name, bit in BUTTON_BITS.items() if state.buttons & bit
             ]
             print(
-                f"[mock] steer={state.steering:+.3f} thr={state.throttle:.3f} "
-                f"brk={state.brake:.3f} rs=({state.rs_x:+.2f},{state.rs_y:+.2f}) "
+                f"[mock] steer={state.steering:+.3f} "
+                f"ls=({state.ls_x:+.2f},{state.ls_y:+.2f}) "
+                f"thr={state.throttle:.3f} brk={state.brake:.3f} "
+                f"rs=({state.rs_x:+.2f},{state.rs_y:+.2f}) "
                 f"btn={','.join(pressed) or '-'}",
                 flush=True,
             )

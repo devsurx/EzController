@@ -12,6 +12,7 @@ Version 2 adds **native Linux support** via the kernel `uinput` API, a backgroun
 * **`controller` command** — starts the server in the background, prints the URL, and returns immediately. Includes `stop`, `restart`, `status`, `logs`, `doctor`, and `tunnel`.
 * **Lower latency** — input changes are sent on the next display frame (`requestAnimationFrame`), WebSocket compression is off, Nagle is disabled, stale frames are not queued, and each frame is applied to the kernel as one batched write.
 * **Crash-safe controls** — a 1-second watchdog releases the throttle/steering if the phone disconnects or the screen locks.
+* **Game presets** — a **Racing** gyro-wheel layout and a **Cozy** layout for Stardew Valley-style 2D games, each with its own labels and mappings. The choice is saved on the phone.
 * **Steering tune panel** — invert, sensitivity, deadzone, and center calibration, saved on the phone.
 * **Better touch handling** — multi-touch, touch cancellation, and a release-all on screen blur/visibility change.
 * **HTTPS helper** — `controller tunnel install` downloads `cloudflared`, then `controller up` starts the server and a quick HTTPS tunnel. This is the reliable way to get gyroscope permission on mobile browsers.
@@ -173,6 +174,8 @@ The old 4.3-second boot animation is gone; the overlay now clears in about 0.3 s
 
 ## 🎮 Controls
 
+### Racing preset
+
 | Phone control | Xbox 360 |
 | --- | --- |
 | Tilt phone (landscape) | Left stick / steering |
@@ -185,9 +188,32 @@ The old 4.3-second boot animation is gone; the overlay now clears in about 0.3 s
 | D-pad | D-pad |
 | View / Menu / Guide | Back / Start / Guide |
 
+### Game presets
+
+Tap **PRESET: …** (or **⚙ SETTINGS**) in the top-right HUD and choose a layout. The page remembers your last choice.
+
+| Preset | Best for | Left stick | Triggers | Bumpers | Extra |
+| --- | --- | --- | --- | --- | --- |
+| **Racing** | Forza, Assetto Corsa, DiRT, BeamNG | Gyro tilt steers | Gas / brake | Gear − / + | E-BRAKE, RPM HUD |
+| **Cozy** | Stardew Valley, 2D games | On-screen thumbstick, full X/Y | Switch item | Shift toolbar | No gyro, no e-brake |
+
+**Cozy** uses the standard Xbox 360 Stardew Valley mapping:
+
+| Phone control | Xbox 360 | In Stardew Valley |
+| --- | --- | --- |
+| Left thumbstick / D-pad | Left stick / D-pad | Walk / run |
+| Right thumbstick | Right stick | Move cursor, open chat |
+| **A** | A | Do action / interact |
+| **X** | X | Use tool |
+| **Y** | Y | Crafting menu |
+| **B** | B | Cancel / menu |
+| **LT / RT** | LT / RT | Switch item |
+| **LB / RB** | LB / RB | Shift toolbar |
+| View / Menu / Guide | Back / Start / Guide | Journal / menu / guide |
+
 ### Steering tune panel
 
-Tap **⚙ TUNE** in the top-right HUD:
+Tap **⚙ SETTINGS** in the top-right HUD (the steering controls are shown in the Racing preset):
 
 * **INVERT** — flip steering direction if your phone is mounted the other way.
 * **SENSITIVITY** — degrees of tilt for full lock (default 10°).
@@ -275,7 +301,7 @@ EZC_PORT=5001 controller
 
 ### Steering is inverted or off-center
 
-Open **⚙ TUNE**:
+Open **⚙ SETTINGS**:
 
 * Tap **INVERT** if left/right are reversed.
 * Hold the phone in your normal driving position and tap **CALIBRATE CENTER**.
@@ -313,7 +339,7 @@ ezcontroller/
 controller                 Linux CLI (background daemon, tunnel, doctor)
 install.sh                 non-root installer, optional .venv
 99-ezcontroller.rules      udev rule for /dev/uinput
-index.html                 phone UI (gyro, touch, tune panel)
+index.html                 phone UI (gyro, touch, presets, tune panel)
 requirements.txt           Linux/server dependencies
 requirements-windows.txt   Windows dependencies (adds vgamepad)
 racing.bat                 original Windows launcher (still works)
