@@ -222,9 +222,11 @@ class LinuxPad(Pad):
 
         values = (
             (ABS_X, _axis(state.ls_x)),
-            (ABS_Y, _axis(state.ls_y)),
+            # evdev/SDL gamepad convention: negative Y is up. The protocol uses
+            # +1 for up (matching XInput/vgamepad), so flip it here.
+            (ABS_Y, _axis(-state.ls_y)),
             (ABS_RX, _axis(state.rs_x)),
-            (ABS_RY, _axis(state.rs_y)),
+            (ABS_RY, _axis(-state.rs_y)),
             (ABS_Z, _trigger(state.brake)),
             (ABS_RZ, _trigger(state.throttle)),
         )
