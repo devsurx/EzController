@@ -472,6 +472,7 @@
     let inputGeneration = 0;
     let gyroEvents = 0;
     let gyroDenied = false;
+    let motionSeen = false;
     let lastGyroUi = 0;
 
     const leftStickCap = $("left-stick-cap");
@@ -564,37 +565,45 @@
         return 0;
     }
 
-    function rawTilt(event) {
+    function orientationAngle(event) {
         if (!event) return null;
-        // gamma is the left/right roll — the natural steering tilt. beta is
-        // front/back pitch, which barely changes when the phone is tilted like
-        // a wheel, so it is only a fallback for browsers without gamma.
+        // Gamma is the left/right roll. It is only a fallback: when the phone
+        // is held upright (the normal racing position) beta sits near ±90° and
+        // gamma becomes unstable, flipping between -90 and +90.
         let tilt = isNum(event.gamma) ? event.gamma : event.beta;
         if (!isNum(tilt)) return null;
         const angle = ((screenAngle() % 360) + 360) % 360;
-        // Landscape-secondary: same sign flip the original client used for -90.
         if (angle === 270) tilt = -tilt;
         return tilt;
     }
 
-    function onOrientation(event) {
-        const raw = rawTilt(event);
-        if (raw === null) return;
-        lastRawTilt = raw;
-        gyroEvents++;
+    function gravityAngle(event) {
+        const g = event.accelerationIncludingGravity;
+        if (!g || !isNum(g.x) || !isNum(g.y)) return null;
+        // When the phone lies flat, gravity points through the screen and the
+        // in-plane angle is meaningless. Keep the orientation fallback then.
+        if (Math.hypot(g.x, g.y) < 2.0) return null;
+        // Upright in landscape: gravity lies along the device X axis (±90°).
+        // Rotating the phone like a wheel moves that vector smoothly in the
+        // screen plane, with no Euler gimbal lock.
+        let angle = Math.atan2(g.x, -g.y) * 180 / Math.PI;
+        const screen = ((screenAngle() % 360) + 360) % 360;
+        if (screen === 270) angle = -angle;
+        return angle;
+    }
 
-        // Cozy preset uses the touch left stick, not the gyro.
-        if (currentPreset !== "racing") return;
-
-        const now = performance.now();
-        if (now - lastGyroUi > 120) {
-            lastGyroUi = now;
-            const beta = isNum(event.beta) ? event.beta.toFixed(0) : "--";
-            const gamma = isNum(event.gamma) ? event.gamma.toFixed(0) : "--";
-            setGyroStatus("GYRO: LIVE · \u03b2 " + beta + "\u00b0 \u03b3 " + gamma + "\u00b0", "#00ff66");
-        }
-
+    function applySteering(raw) {
         let tilt = raw - settings.centerOffset;
+        // Wrap across ±180 so calibration near ±90/±180 never jumps.
+        tilt = ((tilt + 180) % 360 + 360) % 360 - 180;
+        // A ~180° offset means an old calibration came from the fallback axis
+        // or the other landscape orientation. Recentre instead of pinning the
+        // wheel at full lock.
+        if (Math.abs(tilt) > 150) {
+            settings.centerOffset = raw;
+            saveSettings();
+            tilt = 0;
+        }
         if (settings.invertSteering) tilt = -tilt;
 
         if (Math.abs(tilt) < settings.deadzone) tilt = 0;
@@ -609,6 +618,51 @@
         steerDash.innerText = (curved * 90).toFixed(1) + "°";
         if (leftStickCap) leftStickCap.style.transform = `translateX(${curved * 22}px)`;
         scheduleSend();
+    }
+
+    function onOrientation(event) {
+        const raw = orientationAngle(event);
+        if (raw === null) return;
+        gyroEvents++;
+        if (motionSeen) return; // gravity is the stable source
+        lastRawTilt = raw;
+
+        // Cozy preset uses the touch left stick, not the gyro.
+        if (currentPreset !== "racing") return;
+
+        const now = performance.now();
+        if (now - lastGyroUi > 120) {
+            lastGyroUi = now;
+            const beta = isNum(event.beta) ? event.beta.toFixed(0) : "--";
+            const gamma = isNum(event.gamma) ? event.gamma.toFixed(0) : "--";
+            setGyroStatus("GYRO: LIVE (FALLBACK) · \u03b2 " + beta + "\u00b0 \u03b3 " + gamma + "\u00b0", "#ffcc00");
+        }
+        applySteering(raw);
+    }
+
+    function onMotion(event) {
+        const raw = gravityAngle(event);
+        if (raw === null) return;
+        motionSeen = true;
+        lastRawTilt = raw;
+        gyroEvents++;
+
+        // Gravity's neutral angle is around ±90° in landscape. If the user has
+        // never calibrated, take the first sample as centre so the wheel does
+        // not start pinned at full lock.
+        if (settings.centerOffset === 0 && Math.abs(raw) > 30) {
+            settings.centerOffset = raw;
+            saveSettings();
+        }
+
+        if (currentPreset !== "racing") return;
+
+        const now = performance.now();
+        if (now - lastGyroUi > 120) {
+            lastGyroUi = now;
+            setGyroStatus("GYRO: LIVE · GRAVITY " + raw.toFixed(0) + "\u00b0", "#00ff66");
+        }
+        applySteering(raw);
     }
 
     // ---- buttons (multi-touch safe, handles cancellation) ----
@@ -1017,6 +1071,7 @@
         sensorsStarted = true;
 
         window.addEventListener("deviceorientation", onOrientation);
+        window.addEventListener("devicemotion", onMotion);
         setupLeftStick();
         setupRightStick();
 
@@ -1053,6 +1108,12 @@
     function initSensors() {
         // Must run inside the tap handler on iOS for requestPermission().
         const start = () => startSensors();
+        try {
+            if (typeof DeviceMotionEvent !== "undefined" &&
+                typeof DeviceMotionEvent.requestPermission === "function") {
+                DeviceMotionEvent.requestPermission().catch(() => {});
+            }
+        } catch (e) {}
         try {
             if (typeof DeviceOrientationEvent !== "undefined" &&
                 typeof DeviceOrientationEvent.requestPermission === "function") {

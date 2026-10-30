@@ -178,7 +178,7 @@ The old 4.3-second boot animation is gone; the overlay now clears in about 0.3 s
 
 | Phone control | Xbox 360 |
 | --- | --- |
-| Tilt phone (landscape) | Left stick / steering |
+| Rotate/tilt phone (landscape) | Left stick / steering |
 | Right thumbstick | Right stick / camera |
 | **GAS** (right trigger) | Right trigger |
 | **BRAKE** (left trigger) | Left trigger |
@@ -309,9 +309,10 @@ Open **⚙ SETTINGS** and read the **GYRO** line — it tells you what is wrong:
 | `NEEDS HTTPS` / `BLOCKED` | Open the **https://** URL from `controller up`. Mobile browsers block motion sensors on plain `http://` LAN addresses. |
 | `PERMISSION DENIED` | Allow Motion & Orientation Access for the browser, then reload and tap **SYS.IGNITION** again. On iOS: Settings → Safari → Motion & Orientation Access. |
 | `NO EVENTS` | The browser is not delivering sensor data. Try Chrome/Safari over HTTPS, and make sure the phone is not in a low-power/battery-saver mode. |
-| `LIVE · β … γ …` | Sensors are working; tap **CALIBRATE CENTER** while holding the phone in your driving position. |
+| `LIVE · GRAVITY …` | Sensors are working. Steering auto-centers on the first sample; tap **CALIBRATE CENTER** while holding your normal driving position if it drifts. |
+| `LIVE (FALLBACK) · β … γ …` | Motion permission was denied, so the less stable orientation fallback is in use. Reload over HTTPS and allow **both** Motion & Orientation prompts. |
 
-Steering uses the **left/right roll** axis (gamma). Tilt the phone like a seesaw — do not rotate it flat like a steering wheel. If left and right are reversed, tick **INVERT**.
+Steering is derived from the **gravity vector**, not raw Euler angles. That avoids the ±90° gimbal-lock flip you get when holding the phone upright. Hold the phone upright in landscape and rotate it like a steering wheel. If left and right are reversed, tick **INVERT**.
 
 Quick tunnel reminder:
 
