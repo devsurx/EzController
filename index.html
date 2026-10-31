@@ -742,6 +742,7 @@
     // like the button needs a slow, deliberate press. Hold the axis for a few
     // frames so Cozy item switches register on the first tap.
     const TRIGGER_MIN_HOLD_MS = 80;
+    const TRIGGER_RETAP_GAP_MS = 20;
 
     function bindButton(id, key) {
         const el = $(id);
@@ -750,6 +751,28 @@
         let generation = inputGeneration;
         let pressedAt = 0;
         let releaseTimer = null;
+        let pendingTouch = null;
+        let pendingTimer = null;
+
+        const clearPending = () => {
+            if (pendingTimer) clearTimeout(pendingTimer);
+            pendingTimer = null;
+            pendingTouch = null;
+        };
+
+        const startPress = (touch) => {
+            touchId = touch.identifier;
+            pressedAt = performance.now();
+            setButton(key, id, true);
+            el.classList.add("active");
+            if (id === "rt") setRedline(currentPreset === "racing");
+            if (currentPreset === "cozy" &&
+                (id === "lt" || id === "rt" || id === "lb" || id === "rb") &&
+                navigator.vibrate) {
+                navigator.vibrate(10); // crisp click for the item/toolbar buttons
+            }
+            scheduleSend(true);
+        };
 
         const finishRelease = () => {
             releaseTimer = null;
@@ -766,50 +789,69 @@
 
         const press = (event) => {
             if (generation !== inputGeneration) {
+                if (releaseTimer) {
+                    clearTimeout(releaseTimer);
+                    releaseTimer = null;
+                }
+                clearPending();
                 touchId = null;
                 generation = inputGeneration;
             }
             const touch = event.changedTouches && event.changedTouches[0];
             if (!touch) return;
-            // A new tap arrived while the previous one is still latched: restart
-            // the hold with the new touch instead of swallowing the press.
+
             if (releaseTimer) {
-                clearTimeout(releaseTimer);
-                releaseTimer = null;
+                // Rapid retap while the previous press is still latched. Let the
+                // latch finish, then press again after a one-frame gap so the
+                // game sees a fresh edge instead of one continuous hold.
                 event.preventDefault();
-                touchId = touch.identifier;
-                pressedAt = performance.now();
-                scheduleSend(true);
+                pendingTouch = touch;
+                if (pendingTimer) clearTimeout(pendingTimer);
+                const remaining = Math.max(
+                    0, TRIGGER_MIN_HOLD_MS - (performance.now() - pressedAt)
+                );
+                pendingTimer = setTimeout(() => {
+                    pendingTimer = null;
+                    const next = pendingTouch;
+                    pendingTouch = null;
+                    if (generation !== inputGeneration || !next) return;
+                    startPress(next);
+                }, remaining + TRIGGER_RETAP_GAP_MS);
+                return;
+            }
+            if (pendingTimer) {
+                // A press is already queued; point it at the newest touch.
+                event.preventDefault();
+                pendingTouch = touch;
                 return;
             }
             if (touchId !== null) return;
             event.preventDefault();
-            touchId = touch.identifier;
-            pressedAt = performance.now();
-            setButton(key, id, true);
-            el.classList.add("active");
-            if (id === "rt") setRedline(currentPreset === "racing");
-            if (currentPreset === "cozy" &&
-                (id === "lt" || id === "rt" || id === "lb" || id === "rb") &&
-                navigator.vibrate) {
-                navigator.vibrate(10); // crisp click for the item/toolbar buttons
-            }
-            scheduleSend(true);
+            startPress(touch);
         };
 
         const release = (event) => {
             if (generation !== inputGeneration) {
-                touchId = null;
-                generation = inputGeneration;
                 if (releaseTimer) {
                     clearTimeout(releaseTimer);
                     releaseTimer = null;
                 }
+                clearPending();
+                touchId = null;
+                generation = inputGeneration;
+                return;
+            }
+            const changed = event.changedTouches || [];
+            const ended = (idValue) =>
+                Array.from(changed).some((t) => t.identifier === idValue);
+
+            if (pendingTimer && pendingTouch && ended(pendingTouch.identifier)) {
+                // The queued retap was lifted before it even started.
+                clearPending();
                 return;
             }
             if (touchId === null || releaseTimer) return;
-            const ended = Array.from(event.changedTouches || []).some((t) => t.identifier === touchId);
-            if (!ended) return;
+            if (!ended(touchId)) return;
             event.preventDefault();
             const latch = currentPreset === "cozy" && (id === "lt" || id === "rt");
             const remaining = latch
