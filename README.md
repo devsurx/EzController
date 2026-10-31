@@ -199,11 +199,13 @@ Tap **PRESET: …** (or **⚙ SETTINGS**) in the top-right HUD and choose a layo
 
 Cozy uses the space freed by hiding the D-pad and Guide button to make the **left/right sticks, ABXY face buttons, triggers, and bumpers larger** — the controls you touch constantly in Stardew. The sticks also scale their throw with their on-screen size.
 
+The Cozy **LT/RT item** and **LB/RB toolbar** buttons are flat, clicky buttons with no pedal travel or press animation. Short taps are held for a few frames on the trigger axes so the game cannot miss them between polls — tap once and the item switches immediately.
+
 **Cozy** uses the standard Xbox 360 Stardew Valley mapping:
 
 | Phone control | Xbox 360 | In Stardew Valley |
 | --- | --- | --- |
-| Left thumbstick / D-pad | Left stick / D-pad | Walk / run |
+| Left thumbstick | Left stick | Walk / run |
 | Right thumbstick | Right stick | Move cursor, open chat |
 | **A** | A | Do action / interact |
 | **X** | X | Use tool |

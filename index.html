@@ -201,7 +201,33 @@
         body.preset-cozy .bumper {
             width: clamp(92px, 11vw, 120px);
             height: clamp(54px, 7vh, 66px);
-            font-size: clamp(12px, 1.5vw, 14px);
+            font-size: clamp(10px, 1.35vw, 13px);
+            letter-spacing: 0.5px;
+        }
+        /* Item switch / toolbar are digital in Stardew: flat, clicky buttons
+           with zero travel animation instead of accelerator/brake pedals. */
+        body.preset-cozy .trigger,
+        body.preset-cozy .bumper {
+            transition: none;
+            border-radius: 12px;
+            background: linear-gradient(to bottom, #101722, #0a0e15);
+            border: 1px solid #1b2431;
+            border-bottom: 3px solid #1b2431;
+            box-shadow: 0 4px 0 #05070a, 0 8px 18px rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            padding-bottom: 0;
+        }
+        body.preset-cozy .trigger.active,
+        body.preset-cozy .bumper.active,
+        body.preset-cozy #rt.active {
+            transform: translateY(4px);
+            border-bottom-width: 1px;
+            border-bottom-color: #00f3ff;
+            background: #040507;
+            text-shadow: 0 0 15px #00f3ff;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.9),
+                        0 0 18px rgba(0, 243, 255, 0.35);
         }
 
         #telemetry-dash {
@@ -711,25 +737,63 @@
         inputState[key] = sources.size > 0 ? 1 : 0;
     }
 
+    // Analog trigger axes are polled, not queued like digital buttons: a tap
+    // shorter than the game's poll interval can be missed entirely, which feels
+    // like the button needs a slow, deliberate press. Hold the axis for a few
+    // frames so Cozy item switches register on the first tap.
+    const TRIGGER_MIN_HOLD_MS = 80;
+
     function bindButton(id, key) {
         const el = $(id);
         if (!el) return;
         let touchId = null;
         let generation = inputGeneration;
+        let pressedAt = 0;
+        let releaseTimer = null;
+
+        const finishRelease = () => {
+            releaseTimer = null;
+            if (generation !== inputGeneration || touchId === null) {
+                touchId = null;
+                return;
+            }
+            touchId = null;
+            setButton(key, id, false);
+            el.classList.remove("active");
+            if (id === "rt") setRedline(false);
+            scheduleSend(true);
+        };
 
         const press = (event) => {
             if (generation !== inputGeneration) {
                 touchId = null;
                 generation = inputGeneration;
             }
-            if (touchId !== null) return;
             const touch = event.changedTouches && event.changedTouches[0];
             if (!touch) return;
+            // A new tap arrived while the previous one is still latched: restart
+            // the hold with the new touch instead of swallowing the press.
+            if (releaseTimer) {
+                clearTimeout(releaseTimer);
+                releaseTimer = null;
+                event.preventDefault();
+                touchId = touch.identifier;
+                pressedAt = performance.now();
+                scheduleSend(true);
+                return;
+            }
+            if (touchId !== null) return;
             event.preventDefault();
             touchId = touch.identifier;
+            pressedAt = performance.now();
             setButton(key, id, true);
             el.classList.add("active");
             if (id === "rt") setRedline(currentPreset === "racing");
+            if (currentPreset === "cozy" &&
+                (id === "lt" || id === "rt" || id === "lb" || id === "rb") &&
+                navigator.vibrate) {
+                navigator.vibrate(10); // crisp click for the item/toolbar buttons
+            }
             scheduleSend(true);
         };
 
@@ -737,17 +801,25 @@
             if (generation !== inputGeneration) {
                 touchId = null;
                 generation = inputGeneration;
+                if (releaseTimer) {
+                    clearTimeout(releaseTimer);
+                    releaseTimer = null;
+                }
                 return;
             }
-            if (touchId === null) return;
+            if (touchId === null || releaseTimer) return;
             const ended = Array.from(event.changedTouches || []).some((t) => t.identifier === touchId);
             if (!ended) return;
             event.preventDefault();
-            touchId = null;
-            setButton(key, id, false);
-            el.classList.remove("active");
-            if (id === "rt") setRedline(false);
-            scheduleSend(true);
+            const latch = currentPreset === "cozy" && (id === "lt" || id === "rt");
+            const remaining = latch
+                ? TRIGGER_MIN_HOLD_MS - (performance.now() - pressedAt)
+                : 0;
+            if (remaining > 0) {
+                releaseTimer = setTimeout(finishRelease, remaining);
+            } else {
+                finishRelease();
+            }
         };
 
         el.addEventListener("touchstart", press, { passive: false });
