@@ -165,10 +165,44 @@
         body.preset-cozy .cozy-only { display: inline-block !important; }
         body.preset-cozy .racing-only { display: none !important; }
         body.preset-cozy #rpm-container { visibility: hidden; }
-        body.preset-cozy #ebrake-btn { visibility: hidden; pointer-events: none; transition: none; }
-        body.preset-cozy .trigger { font-size: 15px; }
-        body.preset-cozy .bumper { font-size: 12px; }
         body.preset-cozy #steerVal { font-size: 16px; }
+
+        /* Cozy layout: remove the controls that Stardew does not need and make
+           the sticks / face buttons / item controls thumb-sized. */
+        body.preset-cozy #ebrake-btn,
+        body.preset-cozy #dpad,
+        body.preset-cozy #guide-btn { display: none !important; }
+
+        body.preset-cozy #ui-grid { padding: 10px 2vw; }
+        body.preset-cozy .control-cluster { gap: 2vw; }
+        body.preset-cozy #left-stick,
+        body.preset-cozy #right-stick {
+            width: clamp(130px, 21vw, 185px);
+            height: clamp(130px, 21vw, 185px);
+        }
+        body.preset-cozy .joystick-cap { width: 64%; height: 64%; }
+        body.preset-cozy #abxy {
+            width: clamp(150px, 23vw, 205px);
+            height: clamp(150px, 23vw, 205px);
+        }
+        body.preset-cozy .abxy-btn { width: 33%; height: 33%; font-size: clamp(24px, 3.4vw, 30px); }
+        body.preset-cozy #center-console { gap: 10px; }
+        body.preset-cozy .small-btn {
+            width: clamp(44px, 5.5vw, 54px);
+            height: clamp(44px, 5.5vw, 54px);
+        }
+        body.preset-cozy .pedal-cluster { gap: 14px; }
+        body.preset-cozy .trigger {
+            width: clamp(108px, 14vw, 145px);
+            height: clamp(74px, 9.5vh, 95px);
+            font-size: clamp(15px, 2vw, 18px);
+            padding-bottom: 14px;
+        }
+        body.preset-cozy .bumper {
+            width: clamp(92px, 11vw, 120px);
+            height: clamp(54px, 7vh, 66px);
+            font-size: clamp(12px, 1.5vw, 14px);
+        }
 
         #telemetry-dash {
             width: 300px; height: 50px; background: rgba(5, 8, 14, 0.85);
@@ -725,7 +759,7 @@
     function setupRightStick() {
         const el = $("right-stick");
         if (!el) return;
-        const radius = 30;
+        let radius = 30;
         let rect = null;
         let touchId = null;
         let generation = inputGeneration;
@@ -758,6 +792,7 @@
             event.preventDefault();
             touchId = touch.identifier;
             rect = el.getBoundingClientRect();
+            radius = rect.width * 0.22; // scale the throw with the stick size
             update(touch);
             scheduleSend(true);
         }, { passive: false });
@@ -795,7 +830,7 @@
     function setupLeftStick() {
         const el = $("left-stick");
         if (!el) return;
-        const radius = 30;
+        let radius = 30;
         let rect = null;
         let touchId = null;
         let generation = inputGeneration;
@@ -831,6 +866,7 @@
             event.preventDefault();
             touchId = touch.identifier;
             rect = el.getBoundingClientRect();
+            radius = rect.width * 0.22; // scale the throw with the stick size
             update(touch);
             scheduleSend(true);
         }, { passive: false });

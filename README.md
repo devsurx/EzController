@@ -197,6 +197,8 @@ Tap **PRESET: …** (or **⚙ SETTINGS**) in the top-right HUD and choose a layo
 | **Racing** | Forza, Assetto Corsa, DiRT, BeamNG | Gyro tilt steers | Gas / brake | Gear − / + | E-BRAKE, RPM HUD |
 | **Cozy** | Stardew Valley, 2D games | On-screen thumbstick, full X/Y | Switch item | Shift toolbar | No gyro, no e-brake |
 
+Cozy uses the space freed by hiding the D-pad and Guide button to make the **left/right sticks, ABXY face buttons, triggers, and bumpers larger** — the controls you touch constantly in Stardew. The sticks also scale their throw with their on-screen size.
+
 **Cozy** uses the standard Xbox 360 Stardew Valley mapping:
 
 | Phone control | Xbox 360 | In Stardew Valley |
