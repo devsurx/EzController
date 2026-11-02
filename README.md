@@ -193,7 +193,7 @@ Built for **automatic gearbox** bike racing. The shift buttons are removed and t
 
 Gyro throttle and brake use the phone's **pitch** axis, which is independent of the left/right lean axis, so leaning does not add throttle. Use **TILT RANGE**, **TILT DEADZONE**, and **INVERT TILT** in **⚙ SETTINGS**. The triggers remain as analog overrides — whichever input is stronger wins.
 
-The MotoGP tune is separate from the Racing tune: **6° lean to full lock**, **0.4° lean deadzone**, **14° tilt for full throttle/brake**, and **1.2° tilt deadzone** by default. Its lean, throttle, and brake samples are sent immediately instead of waiting for the next animation frame.
+The MotoGP tune is separate from the Racing tune: **12° lean to full lock**, **0.8° lean deadzone**, **20° tilt for full throttle/brake**, and **1.6° tilt deadzone** by default. These wider defaults keep small hand movements from slamming to full lock while remaining linear and latency-free. Its lean, throttle, and brake samples are sent immediately instead of waiting for the next animation frame.
 
 ### Racing preset
 
@@ -216,7 +216,7 @@ Tap **PRESET: …** (or **⚙ SETTINGS**) in the top-right HUD and choose a layo
 | Preset | Best for | Left stick | Triggers | Bumpers | Extra |
 | --- | --- | --- | --- | --- | --- |
 | **Racing** | Forza, Assetto Corsa, DiRT, BeamNG | Gyro tilt steers | Gas / brake | Gear − / + | E-BRAKE, RPM HUD |
-| **MotoGP** | MotoGP, Ride, SBK, automatic gearbox | Gyro lean (sharp 6°) | Gyro tilt throttle / brake + trigger overrides | Hidden | AUTO gearbox, rear brake, tilt tune |
+| **MotoGP** | MotoGP, Ride, SBK, automatic gearbox | Gyro lean (12° lock) | Gyro tilt throttle / brake + trigger overrides | Hidden | AUTO gearbox, rear brake, tilt tune |
 | **Cozy** | Stardew Valley, 2D games | On-screen thumbstick, full X/Y | Switch item | Shift toolbar | No gyro, no e-brake |
 
 Cozy uses the space freed by hiding the D-pad and Guide button to make the **left/right sticks, ABXY face buttons, triggers, and bumpers larger** — the controls you touch constantly in Stardew. The sticks also scale their throw with their on-screen size.
@@ -242,10 +242,10 @@ The Cozy **LT/RT item** and **LB/RB toolbar** buttons are flat, clicky buttons w
 Tap **⚙ SETTINGS** in the top-right HUD. Racing and MotoGP each keep their own tune:
 
 * **INVERT** — flip steering/lean direction if your phone is mounted the other way.
-* **SENSITIVITY** — degrees of tilt for full lock (Racing default 10°, MotoGP default 6°).
-* **DEADZONE** — center deadzone (Racing default 1.2°, MotoGP default 0.4°).
-* **TILT RANGE** (MotoGP) — forward/back tilt for full throttle or brake (default 14°).
-* **TILT DEADZONE** (MotoGP) — ignore small pitch changes (default 1.2°).
+* **SENSITIVITY** — degrees of tilt for full lock (Racing default 10°, MotoGP default 12°). Increase it if the bike still feels twitchy.
+* **DEADZONE** — center deadzone (Racing default 1.2°, MotoGP default 0.8°).
+* **TILT RANGE** (MotoGP) — forward/back tilt for full throttle or brake (default 20°).
+* **TILT DEADZONE** (MotoGP) — ignore small pitch changes (default 1.6°).
 * **INVERT TILT** (MotoGP) — swap gyro throttle and brake if the phone is held the other way.
 * **CALIBRATE CENTER** — set the current lean (and MotoGP pitch) as neutral.
 * **RESET DEFAULTS**.

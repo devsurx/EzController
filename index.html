@@ -391,8 +391,8 @@
     <label class="tune-row racing-only"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
     <label class="tune-row racing-only"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">10°</b></label>
     <label class="tune-row racing-only"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">1.2°</b></label>
-    <label class="tune-row bike-tune"><span>TILT RANGE</span><input type="range" id="tune-pitch" min="6" max="30" step="1"><b id="tune-pitch-val">14°</b></label>
-    <label class="tune-row bike-tune"><span>TILT DEADZONE</span><input type="range" id="tune-pitch-dz" min="0" max="6" step="0.1"><b id="tune-pitch-dz-val">1.2°</b></label>
+    <label class="tune-row bike-tune"><span>TILT RANGE</span><input type="range" id="tune-pitch" min="6" max="30" step="1"><b id="tune-pitch-val">20°</b></label>
+    <label class="tune-row bike-tune"><span>TILT DEADZONE</span><input type="range" id="tune-pitch-dz" min="0" max="6" step="0.1"><b id="tune-pitch-dz-val">1.6°</b></label>
     <label class="tune-row bike-tune"><span>INVERT TILT</span><input type="checkbox" id="tune-pitch-invert"></label>
     <button id="tune-cal" class="racing-only">CALIBRATE CENTER</button>
     <button id="tune-reset" class="racing-only">RESET DEFAULTS</button>
@@ -517,20 +517,22 @@
         curve: 1.0,
         deadzone: 1.2
     };
-    // Bike steering is deliberately tighter than the car profile: less tilt to
-    // full lock, almost no deadzone, and a slightly progressive curve.
+    // Bike steering stays linear and latency-free, but needs a wider range than
+    // the first revision so small hand movements do not slam it to full lock.
     const BIKE_DEFAULTS = {
         invertSteering: false,
         centerOffset: 0.0,
-        maxTilt: 6.0,
-        curve: 0.9,
-        deadzone: 0.4,
+        maxTilt: 12.0,
+        curve: 1.0,
+        deadzone: 0.8,
         pitchCenter: 0.0,
         pitchCentered: false,
-        pitchRange: 14.0,
-        pitchDeadzone: 1.2,
-        pitchInvert: false
+        pitchRange: 20.0,
+        pitchDeadzone: 1.6,
+        pitchInvert: false,
+        tuneVersion: 2
     };
+    const BIKE_TUNE_VERSION = 2;
 
     function loadTune(raw, defaults) {
         const tune = { ...defaults };
@@ -557,6 +559,24 @@
     bikeSettings.pitchRange = clamp(number(savedBike.pitchRange, BIKE_DEFAULTS.pitchRange), 6, 30);
     bikeSettings.pitchDeadzone = clamp(number(savedBike.pitchDeadzone, BIKE_DEFAULTS.pitchDeadzone), 0, 6);
     bikeSettings.pitchInvert = !!savedBike.pitchInvert;
+
+    // Upgrade phones that still have the first, over-sensitive bike tune. A
+    // manually tuned profile is left alone; only untouched legacy defaults move.
+    if (number(savedBike.tuneVersion, 1) < BIKE_TUNE_VERSION) {
+        const untouchedLegacy =
+            bikeSettings.maxTilt === 6 && bikeSettings.deadzone === 0.4 &&
+            bikeSettings.curve === 0.9 && bikeSettings.pitchRange === 14 &&
+            bikeSettings.pitchDeadzone === 1.2;
+        if (untouchedLegacy) {
+            bikeSettings.maxTilt = BIKE_DEFAULTS.maxTilt;
+            bikeSettings.deadzone = BIKE_DEFAULTS.deadzone;
+            bikeSettings.curve = BIKE_DEFAULTS.curve;
+            bikeSettings.pitchRange = BIKE_DEFAULTS.pitchRange;
+            bikeSettings.pitchDeadzone = BIKE_DEFAULTS.pitchDeadzone;
+        }
+        bikeSettings.tuneVersion = BIKE_TUNE_VERSION;
+        saveSettings();
+    }
 
     // Game presets change the on-screen labels and which control surfaces drive
     // the pad. Racing and MotoGP use gyro steering; Cozy drives the full left
