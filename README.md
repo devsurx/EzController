@@ -12,8 +12,8 @@ Version 2 adds **native Linux support** via the kernel `uinput` API, a backgroun
 * **`controller` command** — starts the server in the background, prints the URL, and returns immediately. Includes `stop`, `restart`, `status`, `logs`, `doctor`, and `tunnel`.
 * **Lower latency** — input changes are sent on the next display frame (`requestAnimationFrame`), WebSocket compression is off, Nagle is disabled, stale frames are not queued, and each frame is applied to the kernel as one batched write.
 * **Crash-safe controls** — a 1-second watchdog releases the throttle/steering if the phone disconnects or the screen locks.
-* **Game presets** — **Racing**, **MotoGP**, and **Cozy** layouts, each with its own labels, mappings, and saved steering tune. MotoGP adds a sharp bike profile plus gyro throttle/brake for automatic-gearbox play.
-* **Steering tune panel** — invert, sensitivity, deadzone, center calibration, and MotoGP tilt-throttle range/deadzone, saved on the phone.
+* **Game presets** — **Racing**, **MotoGP**, and **Cozy** layouts, each with its own labels, mappings, and saved steering tune. Racing is tuned for RaceRoom track work with a 12° lock, 1.4× steering expo, and analog pressure pedals. MotoGP adds a sharp bike profile plus gyro throttle/brake for automatic-gearbox play.
+* **Steering tune panel** — invert, sensitivity, deadzone, steering expo, analog pedals, center calibration, and MotoGP tilt-throttle range/deadzone, saved on the phone.
 * **Better touch handling** — multi-touch, touch cancellation, and a release-all on screen blur/visibility change.
 * **HTTPS helper** — `controller tunnel install` downloads `cloudflared`, then `controller up` starts the server and a quick HTTPS tunnel. This is the reliable way to get gyroscope permission on mobile browsers.
 
@@ -201,13 +201,40 @@ The MotoGP tune is separate from the Racing tune: **12° lean to full lock**, **
 | --- | --- |
 | Rotate/tilt phone (landscape) | Left stick / steering |
 | Right thumbstick | Right stick / camera |
-| **GAS** (right trigger) | Right trigger |
-| **BRAKE** (left trigger) | Left trigger |
+| **GAS** (right trigger) | Right trigger, analog pressure |
+| **BRAKE** (left trigger) | Left trigger, analog pressure |
 | **GEAR + / GEAR −** | RB / LB |
 | **A / B / X / Y** | Face buttons |
-| **E-BRAKE** | A |
+| **E-BRAKE** | B |
 | D-pad | D-pad |
 | View / Menu / Guide | Back / Start / Guide |
+
+The Racing pedals are **analog**. Press near the top of **GAS** or **BRAKE** for a light application, slide your thumb lower for more pressure, and the fill shows the current value. The pressure is held until you lift, so you can feather the throttle out of a slow corner or trail-brake into an apex. Turn **ANALOG PEDALS** off in **⚙ SETTINGS** if you prefer simple on/off pedals.
+
+### RaceRoom track setup
+
+Bind the virtual pad once in RaceRoom under **Options → Controls → Controller**:
+
+| RaceRoom action | Bind to |
+| --- | --- |
+| Steering | Left Stick X |
+| Throttle | Right Trigger |
+| Brake | Left Trigger |
+| Shift up / Shift down | RB / LB |
+| Handbrake | B |
+| Look / camera | Right Stick |
+| Menus | D-pad / View / Menu |
+
+Start with **Steering Dead Zone 0%**, **Steering Sensitivity 50%**, **Speed Sensitive Steering 0%**, and **Steering Curve Exponent 1.0**. The phone already applies a 0.8° deadzone and a 1.4× expo, so leaving the game's curve linear avoids stacking two curves.
+
+Then tune to taste:
+
+* If the car feels **twitchy at speed**, raise in-game **Speed Sensitive Steering** to 25–50% or raise the phone's **SENSITIVITY** slightly.
+* If the car feels **lazy or slow to turn in**, raise in-game **Steering Sensitivity** first, before lowering the phone's expo.
+* If you want **finer corrections around straight-ahead** without changing full lock, raise **STEERING EXPO**.
+* Use **CALIBRATE CENTER** on the grid while holding the phone in your normal driving position, not mid-corner.
+
+Racing also uses a light adaptive filter: it removes hand tremor at rest but lets fast corrections through untouched, so countersteer is not delayed. MotoGP remains raw and immediate.
 
 ### Game presets
 
@@ -215,7 +242,7 @@ Tap **PRESET: …** (or **⚙ SETTINGS**) in the top-right HUD and choose a layo
 
 | Preset | Best for | Left stick | Triggers | Bumpers | Extra |
 | --- | --- | --- | --- | --- | --- |
-| **Racing** | Forza, Assetto Corsa, DiRT, BeamNG | Gyro tilt steers | Gas / brake | Gear − / + | E-BRAKE, RPM HUD |
+| **Racing** | RaceRoom, Forza, Assetto Corsa, DiRT, BeamNG | Gyro tilt steers, 1.4× expo | Analog gas / brake | Gear − / + | E-BRAKE, RPM HUD |
 | **MotoGP** | MotoGP, Ride, SBK, automatic gearbox | Gyro lean (12° lock) | Gyro tilt throttle / brake + trigger overrides | Hidden | AUTO gearbox, rear brake, tilt tune |
 | **Cozy** | Stardew Valley, 2D games | On-screen thumbstick, full X/Y | Switch item | Shift toolbar | No gyro, no e-brake |
 
@@ -242,8 +269,10 @@ The Cozy **LT/RT item** and **LB/RB toolbar** buttons are flat, clicky buttons w
 Tap **⚙ SETTINGS** in the top-right HUD. Racing and MotoGP each keep their own tune:
 
 * **INVERT** — flip steering/lean direction if your phone is mounted the other way.
-* **SENSITIVITY** — degrees of tilt for full lock (Racing default 10°, MotoGP default 12°). Increase it if the bike still feels twitchy.
-* **DEADZONE** — center deadzone (Racing default 1.2°, MotoGP default 0.8°).
+* **SENSITIVITY** — total tilt for full lock (Racing default 12°, MotoGP default 12°). Increase it if the car or bike still feels twitchy.
+* **DEADZONE** — center deadzone (Racing default 0.8°, MotoGP default 0.8°).
+* **STEERING EXPO** (Racing) — 1.00× is linear; the default 1.40× gives finer corrections around straight-ahead while keeping the same full lock.
+* **ANALOG PEDALS** (Racing) — on by default. Touch high on GAS/BRAKE for light pressure, low for full pressure.
 * **TILT RANGE** (MotoGP) — forward/back tilt for full throttle or brake (default 20°).
 * **TILT DEADZONE** (MotoGP) — ignore small pitch changes (default 1.6°).
 * **INVERT TILT** (MotoGP) — swap gyro throttle and brake if the phone is held the other way.

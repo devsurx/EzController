@@ -251,6 +251,10 @@
 
         .bike-tune { display: none !important; }
         body.preset-motogp .bike-tune { display: flex !important; }
+        /* RaceRoom-specific rows: steering expo and analog pedals. They do
+           not apply to the bike tune, so keep them out of MotoGP. */
+        .race-only { display: none !important; }
+        body.preset-racing .race-only { display: flex !important; }
 
         #telemetry-dash {
             width: 300px; height: 50px; background: rgba(5, 8, 14, 0.85);
@@ -325,7 +329,21 @@
 
         .trigger { width: 105px; height: 75px; background: linear-gradient(to top, #0a0d14, #040507); border-radius: 6px 6px 20px 20px; color: #4a5c75; font-weight: 900; font-size: 20px; display: flex; justify-content: center; align-items: flex-end; padding-bottom: 12px; box-shadow: inset 0 -2px 2px rgba(255,255,255,0.05), 0 10px 20px rgba(0,0,0,0.9); border-bottom: 2px solid #151b26; z-index: 20; 
             transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+            position: relative;
         }
+        /* Analog pedal travel: the fill rises with touch pressure so the
+           throttle/brake can be held at a partial value like a real trigger. */
+        .trigger-fill {
+            position: absolute; left: 0; right: 0; bottom: 0;
+            height: var(--fill, 0px);
+            background: linear-gradient(to top, rgba(0,243,255,0.42), rgba(0,243,255,0.04));
+            border-radius: 6px 6px 18px 18px;
+            pointer-events: none; transition: height 0.03s linear; z-index: 0;
+        }
+        .trigger-label { position: relative; z-index: 1; }
+        #rt .trigger-fill { background: linear-gradient(to top, rgba(0,255,102,0.42), rgba(0,255,102,0.04)); }
+        #lt .trigger-fill { background: linear-gradient(to top, rgba(255,0,60,0.42), rgba(255,0,60,0.04)); }
+        body.preset-cozy .trigger-fill { display: none; }
         .trigger.active { background: #040507; color: #fff; text-shadow: 0 0 15px #00f3ff; box-shadow: inset 0 -5px 10px rgba(0,0,0,0.95), 0 2px 5px rgba(0,0,0,0.6); transform: translateY(4px); border-bottom-color: #00f3ff;}
         
         #rt.active { text-shadow: 0 0 15px #ff003c; border-bottom-color: #ff003c; }
@@ -389,8 +407,10 @@
 
     <div class="tune-section-title racing-only" id="tune-steer-title">STEERING TUNE</div>
     <label class="tune-row racing-only"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
-    <label class="tune-row racing-only"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">10°</b></label>
-    <label class="tune-row racing-only"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">1.2°</b></label>
+    <label class="tune-row racing-only"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">12°</b></label>
+    <label class="tune-row racing-only"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">0.8°</b></label>
+    <label class="tune-row race-only"><span>STEERING EXPO</span><input type="range" id="tune-curve" min="1" max="2" step="0.05"><b id="tune-curve-val">1.40×</b></label>
+    <label class="tune-row race-only"><span>ANALOG PEDALS</span><input type="checkbox" id="tune-analog"></label>
     <label class="tune-row bike-tune"><span>TILT RANGE</span><input type="range" id="tune-pitch" min="6" max="30" step="1"><b id="tune-pitch-val">20°</b></label>
     <label class="tune-row bike-tune"><span>TILT DEADZONE</span><input type="range" id="tune-pitch-dz" min="0" max="6" step="0.1"><b id="tune-pitch-dz-val">1.6°</b></label>
     <label class="tune-row bike-tune"><span>INVERT TILT</span><input type="checkbox" id="tune-pitch-invert"></label>
@@ -476,7 +496,7 @@
 
     <div id="bottom-row">
         <div class="pedal-cluster">
-            <div class="trigger fat-finger" id="lt">BRAKE</div>
+            <div class="trigger fat-finger" id="lt"><span class="trigger-fill"></span><span class="trigger-label">BRAKE</span></div>
             <div class="bumper fat-finger" id="lb">GEAR −</div>
         </div>
 
@@ -484,7 +504,7 @@
         
         <div class="pedal-cluster">
             <div class="bumper fat-finger" id="rb">GEAR +</div>
-            <div class="trigger fat-finger" id="rt">GAS</div>
+            <div class="trigger fat-finger" id="rt"><span class="trigger-fill"></span><span class="trigger-label">GAS</span></div>
         </div>
     </div>
 </div>
@@ -509,14 +529,23 @@
         dpad_up: 0, dpad_down: 0, dpad_left: 0, dpad_right: 0,
         view_btn: 0, menu_btn: 0, guide_btn: 0, rs_x: 0.0, rs_y: 0.0
     };
+    // Continuous pressure for the Racing gas/brake pedals. Cozy and MotoGP
+    // keep using the digital button path.
+    const triggerPressure = { throttle: 0, brake: 0 };
 
+    // Racing is tuned for track work in RaceRoom: enough physical lock to be
+    // smooth, a small centre deadzone, and a progressive curve so small
+    // corrections around straight-ahead stay precise. Pedals are analog.
     const DEFAULTS = {
         invertSteering: false,
         centerOffset: 0.0,
-        maxTilt: 10.0,
-        curve: 1.0,
-        deadzone: 1.2
+        maxTilt: 12.0,
+        curve: 1.4,
+        deadzone: 0.8,
+        analogTriggers: true,
+        tuneVersion: 2
     };
+    const RACE_TUNE_VERSION = 2;
     // Bike steering stays linear and latency-free, but needs a wider range than
     // the first revision so small hand movements do not slam it to full lock.
     const BIKE_DEFAULTS = {
@@ -542,6 +571,10 @@
             tune.maxTilt = clamp(number(raw.maxTilt, defaults.maxTilt), 4, 30);
             tune.curve = clamp(number(raw.curve, defaults.curve), 0.5, 2);
             tune.deadzone = clamp(number(raw.deadzone, defaults.deadzone), 0, 8);
+            if (typeof raw.analogTriggers === "boolean") {
+                tune.analogTriggers = raw.analogTriggers;
+            }
+            if (isNum(raw.tuneVersion)) tune.tuneVersion = raw.tuneVersion;
         }
         return tune;
     }
@@ -578,13 +611,28 @@
         saveSettings();
     }
 
+    // Upgrade the original linear Racing tune. A manually adjusted tune is
+    // preserved; only the untouched legacy defaults move to the refined curve.
+    if (number(savedTune.tuneVersion, 1) < RACE_TUNE_VERSION) {
+        const untouchedLegacyRacing =
+            settings.maxTilt === 10 && settings.curve === 1 &&
+            settings.deadzone === 1.2;
+        if (untouchedLegacyRacing) {
+            settings.maxTilt = DEFAULTS.maxTilt;
+            settings.curve = DEFAULTS.curve;
+            settings.deadzone = DEFAULTS.deadzone;
+        }
+        settings.tuneVersion = RACE_TUNE_VERSION;
+        saveSettings();
+    }
+
     // Game presets change the on-screen labels and which control surfaces drive
     // the pad. Racing and MotoGP use gyro steering; Cozy drives the full left
     // stick and is mapped for Stardew Valley / 2D games.
     const PRESETS = {
         racing: {
             name: "RACING",
-            help: "Tilt to steer · LT/RT gas & brake · B handbrake · LB/RB gears",
+            help: "Tilt to steer · Slide up/down GAS & BRAKE for pressure · B handbrake · LB/RB gears",
             labels: { lt: "BRAKE", rt: "GAS", lb: "GEAR −", rb: "GEAR +" },
             ebrake: "E-BRAKE",
             gyro: true
@@ -625,6 +673,8 @@
     let wakeLock = null;
     let lastRawTilt = null;
     let lastPitch = null;
+    let steerFilter = 0;
+    let steerFilterReady = false;
     let inputGeneration = 0;
     let gyroEvents = 0;
     let gyroDenied = false;
@@ -804,15 +854,36 @@
         // wheel at full lock.
         if (Math.abs(tilt) > 150) {
             tune.centerOffset = raw;
+            steerFilterReady = false;
+            steerFilter = 0;
             saveSettings();
             tilt = 0;
         }
         if (tune.invertSteering) tilt = -tilt;
 
+        // Cars get a light adaptive filter: it removes hand tremor at rest but
+        // passes fast corrections through untouched, so there is no steering
+        // delay. Bikes stay raw and immediate.
+        if (currentPreset === "racing") {
+            if (!steerFilterReady) {
+                steerFilter = tilt;
+                steerFilterReady = true;
+            }
+            const delta = tilt - steerFilter;
+            const alpha = Math.abs(delta) > 2.0 ? 1.0 : 0.55;
+            steerFilter += alpha * delta;
+            tilt = steerFilter;
+        }
+
         if (Math.abs(tilt) < tune.deadzone) tilt = 0;
         else tilt = Math.sign(tilt) * (Math.abs(tilt) - tune.deadzone);
 
-        const steering = clamp(tilt / tune.maxTilt, -1, 1);
+        // Racing's slider means "total tilt for full lock", so measure the
+        // remaining travel after the deadzone. MotoGP keeps its existing feel.
+        const span = currentPreset === "racing"
+            ? Math.max(0.1, tune.maxTilt - tune.deadzone)
+            : tune.maxTilt;
+        const steering = clamp(tilt / span, -1, 1);
         const curved = Math.sign(steering) * Math.pow(Math.abs(steering), tune.curve);
 
         inputState.steering = curved;
@@ -902,7 +973,8 @@
     // ---- buttons (multi-touch safe, handles cancellation) ----
     function buttonValue(key) {
         const sources = activeSources.get(key);
-        return sources && sources.size > 0 ? 1 : 0;
+        const digital = sources && sources.size > 0 ? 1 : 0;
+        return Math.max(digital, triggerPressure[key] || 0);
     }
 
     function setButton(key, source, pressed) {
@@ -914,11 +986,42 @@
         if (pressed) sources.add(source);
         else sources.delete(source);
         if (key === "throttle") {
-            inputState.throttle = Math.max(sources.size > 0 ? 1 : 0, gyroThrottle);
+            inputState.throttle = Math.max(buttonValue(key), gyroThrottle);
         } else if (key === "brake") {
-            inputState.brake = Math.max(sources.size > 0 ? 1 : 0, gyroBrake);
+            inputState.brake = Math.max(buttonValue(key), gyroBrake);
         } else {
             inputState[key] = sources.size > 0 ? 1 : 0;
+        }
+    }
+
+    function setTriggerPressure(key, value, element) {
+        const pressure = clamp(value, 0, 1);
+        triggerPressure[key] = pressure;
+        if (element) {
+            element.style.setProperty("--press", pressure.toFixed(3));
+            // Use pixels: percentage heights on absolutely positioned pseudo
+            // elements inside this flex layout resolve to zero in some browsers.
+            element.style.setProperty(
+                "--fill",
+                (pressure * element.clientHeight).toFixed(1) + "px"
+            );
+        }
+        inputState[key] = Math.max(
+            pressure,
+            key === "throttle" ? gyroThrottle : gyroBrake
+        );
+    }
+
+    function resetTriggerPressure() {
+        for (const key of Object.keys(triggerPressure)) triggerPressure[key] = 0;
+        inputState.throttle = 0;
+        inputState.brake = 0;
+        for (const id of ["lt", "rt"]) {
+            const el = $(id);
+            if (el) {
+                el.style.setProperty("--press", "0");
+                el.style.setProperty("--fill", "0px");
+            }
         }
     }
 
@@ -932,12 +1035,22 @@
     function bindButton(id, key) {
         const el = $(id);
         if (!el) return;
+        // A few controls change meaning with the preset (the centre E-BRAKE is
+        // B in a car and A on the bike), so keys can be resolved lazily.
+        const keyFor = () => (typeof key === "function" ? key() : key);
+
         let touchId = null;
         let generation = inputGeneration;
         let pressedAt = 0;
         let releaseTimer = null;
         let pendingTouch = null;
         let pendingTimer = null;
+        let heldKey = null;
+
+        // Continuous pedal state for the Racing preset.
+        let analogTouchId = null;
+        let analogRect = null;
+        let analogKey = null;
 
         const clearPending = () => {
             if (pendingTimer) clearTimeout(pendingTimer);
@@ -945,10 +1058,80 @@
             pendingTouch = null;
         };
 
+        const resetTouchState = () => {
+            if (releaseTimer) {
+                clearTimeout(releaseTimer);
+                releaseTimer = null;
+            }
+            clearPending();
+            touchId = null;
+            heldKey = null;
+            analogTouchId = null;
+            analogRect = null;
+            analogKey = null;
+        };
+
+        const isAnalogTrigger = () => {
+            const pressedKey = keyFor();
+            return (pressedKey === "throttle" || pressedKey === "brake") &&
+                currentPreset === "racing" &&
+                settings.analogTriggers !== false;
+        };
+
+        const pressureAt = (touch) => {
+            const rect = analogRect || el.getBoundingClientRect();
+            analogRect = rect;
+            // Ignore the rounded top/bottom edges: top of the pedal is light,
+            // bottom of the pedal is full pressure, like trigger travel.
+            const top = rect.top + rect.height * 0.16;
+            const bottom = rect.bottom - rect.height * 0.10;
+            return clamp((touch.clientY - top) / Math.max(1, bottom - top), 0, 1);
+        };
+
+        const analogUpdate = (touch, immediate) => {
+            if (!analogKey) return;
+            setTriggerPressure(analogKey, pressureAt(touch), el);
+            scheduleSend(immediate);
+        };
+
+        const analogPress = (event, touch) => {
+            event.preventDefault();
+            analogTouchId = touch.identifier;
+            analogKey = keyFor();
+            analogRect = el.getBoundingClientRect();
+            analogUpdate(touch, true);
+            el.classList.add("active");
+            if (id === "rt") setRedline(currentPreset === "racing" || currentPreset === "motogp");
+        };
+
+        const analogMove = (event) => {
+            const touch = Array.from(event.touches || [])
+                .find((t) => t.identifier === analogTouchId);
+            if (!touch) return;
+            event.preventDefault();
+            analogUpdate(touch, false);
+        };
+
+        const analogRelease = (event) => {
+            const changed = event.changedTouches || [];
+            if (!Array.from(changed).some((t) => t.identifier === analogTouchId)) return;
+            event.preventDefault();
+            if (analogKey) {
+                setTriggerPressure(analogKey, 0, el);
+                scheduleSend(true);
+            }
+            analogTouchId = null;
+            analogRect = null;
+            analogKey = null;
+            el.classList.remove("active");
+            if (id === "rt") setRedline(false);
+        };
+
         const startPress = (touch) => {
             touchId = touch.identifier;
+            heldKey = keyFor();
             pressedAt = performance.now();
-            setButton(key, id, true);
+            setButton(heldKey, id, true);
             el.classList.add("active");
             if (id === "rt") setRedline(currentPreset === "racing" || currentPreset === "motogp");
             if (currentPreset === "cozy" &&
@@ -966,7 +1149,8 @@
                 return;
             }
             touchId = null;
-            setButton(key, id, false);
+            setButton(heldKey || keyFor(), id, false);
+            heldKey = null;
             el.classList.remove("active");
             if (id === "rt") setRedline(false);
             scheduleSend(true);
@@ -974,16 +1158,17 @@
 
         const press = (event) => {
             if (generation !== inputGeneration) {
-                if (releaseTimer) {
-                    clearTimeout(releaseTimer);
-                    releaseTimer = null;
-                }
-                clearPending();
-                touchId = null;
+                resetTouchState();
                 generation = inputGeneration;
             }
             const touch = event.changedTouches && event.changedTouches[0];
             if (!touch) return;
+
+            if (analogTouchId !== null) return;
+            if (isAnalogTrigger()) {
+                analogPress(event, touch);
+                return;
+            }
 
             if (releaseTimer) {
                 // Rapid retap while the previous press is still latched. Let the
@@ -1017,13 +1202,12 @@
 
         const release = (event) => {
             if (generation !== inputGeneration) {
-                if (releaseTimer) {
-                    clearTimeout(releaseTimer);
-                    releaseTimer = null;
-                }
-                clearPending();
-                touchId = null;
+                resetTouchState();
                 generation = inputGeneration;
+                return;
+            }
+            if (analogTouchId !== null) {
+                analogRelease(event);
                 return;
             }
             const changed = event.changedTouches || [];
@@ -1050,6 +1234,9 @@
         };
 
         el.addEventListener("touchstart", press, { passive: false });
+        el.addEventListener("touchmove", (event) => {
+            if (analogTouchId !== null) analogMove(event);
+        }, { passive: false });
         el.addEventListener("touchend", release, { passive: false });
         el.addEventListener("touchcancel", release, { passive: false });
     }
@@ -1213,9 +1400,10 @@
         activeSources.clear();
         gyroThrottle = 0;
         gyroBrake = 0;
+        steerFilterReady = false;
+        steerFilter = 0;
         for (const key of BUTTON_KEYS) inputState[key] = 0;
-        inputState.throttle = 0;
-        inputState.brake = 0;
+        resetTriggerPressure();
         inputState.rs_x = 0;
         inputState.rs_y = 0;
         inputState.steering = 0;
@@ -1269,6 +1457,8 @@
         if (options.release !== false) releaseAll();
 
         currentPreset = name;
+        steerFilterReady = false;
+        steerFilter = 0;
         const preset = PRESETS[name];
         const cozy = name === "cozy";
         const motogp = name === "motogp";
@@ -1279,7 +1469,9 @@
 
         for (const [id, label] of Object.entries(preset.labels)) {
             const el = $(id);
-            if (el) el.innerText = label;
+            if (!el) continue;
+            const target = el.querySelector(".trigger-label");
+            (target || el).innerText = label;
         }
         const ebrake = $("ebrake-btn");
         if (ebrake) ebrake.innerText = preset.ebrake || "E-BRAKE";
@@ -1326,6 +1518,13 @@
         const dzVal = $("tune-dz-val");
         if (sensVal) sensVal.innerText = tune.maxTilt.toFixed(0) + "°";
         if (dzVal) dzVal.innerText = tune.deadzone.toFixed(1) + "°";
+
+        const curve = $("tune-curve");
+        const curveVal = $("tune-curve-val");
+        if (curve) curve.value = String(tune.curve);
+        if (curveVal) curveVal.innerText = tune.curve.toFixed(2) + "×";
+        const analog = $("tune-analog");
+        if (analog) analog.checked = settings.analogTriggers !== false;
 
         const pitch = $("tune-pitch");
         const pitchDz = $("tune-pitch-dz");
@@ -1387,6 +1586,8 @@
 
         $("tune-invert").addEventListener("change", (event) => {
             activeTune().invertSteering = event.target.checked;
+            steerFilterReady = false;
+            steerFilter = 0;
             saveSettings();
         });
 
@@ -1399,8 +1600,29 @@
 
         $("tune-dz").addEventListener("input", (event) => {
             const tune = activeTune();
-            tune.deadzone = clamp(number(event.target.value, 1.2), 0, 8);
+            tune.deadzone = clamp(number(event.target.value, 0.8), 0, 8);
             $("tune-dz-val").innerText = tune.deadzone.toFixed(1) + "°";
+            saveSettings();
+        });
+
+        $("tune-curve").addEventListener("input", (event) => {
+            const tune = activeTune();
+            tune.curve = clamp(number(event.target.value, 1.4), 0.5, 2);
+            $("tune-curve-val").innerText = tune.curve.toFixed(2) + "×";
+            saveSettings();
+        });
+
+        $("tune-analog").addEventListener("change", (event) => {
+            settings.analogTriggers = event.target.checked;
+            if (!event.target.checked && currentPreset === "racing") {
+                resetTriggerPressure();
+                for (const id of ["lt", "rt"]) {
+                    const el = $(id);
+                    if (el) el.classList.remove("active");
+                }
+                setRedline(false);
+                scheduleSend(true);
+            }
             saveSettings();
         });
 
@@ -1427,6 +1649,8 @@
                 return;
             }
             activeTune().centerOffset = lastRawTilt;
+            steerFilterReady = false;
+            steerFilter = 0;
             if (currentPreset === "motogp") {
                 bikeSettings.pitchCenter = lastPitch;
                 bikeSettings.pitchCentered = true;
@@ -1437,6 +1661,9 @@
 
         $("tune-reset").addEventListener("click", () => {
             Object.assign(activeTune(), currentPreset === "motogp" ? BIKE_DEFAULTS : DEFAULTS);
+            steerFilterReady = false;
+            steerFilter = 0;
+            resetTriggerPressure();
             saveSettings();
             updateTuneUI();
             tuneStatus("DEFAULTS RESTORED");
@@ -1468,7 +1695,8 @@
         bindButton("dpad-down", "dpad_down");
         bindButton("dpad-left", "dpad_left");
         bindButton("dpad-right", "dpad_right");
-        bindButton("ebrake-btn", "a_btn");
+        // Centre button: handbrake (B) in a car, rear brake (A) on the bike.
+        bindButton("ebrake-btn", () => currentPreset === "motogp" ? "a_btn" : "handbrake");
 
         // If the browser silently withholds sensor events, say why instead of
         // leaving the steering readout at 0 forever.
@@ -1534,7 +1762,8 @@
                 : currentPreset === "motogp"
                     ? "> BIKE MATRIX: AUTO GEARBOX / LEAN " + bootTune.maxTilt.toFixed(0) +
                       "° / THR " + bikeSettings.pitchRange.toFixed(0) + "°"
-                    : "> GYRO MATRIX: ONLINE / DEADZONE " + bootTune.deadzone.toFixed(1) + "°",
+                    : "> GYRO MATRIX: " + bootTune.maxTilt.toFixed(0) + "° LOCK / " +
+                      bootTune.curve.toFixed(2) + "× EXPO / ANALOG PEDALS",
             "> CONNECTION ESTABLISHED."
         ].join("\n");
         terminal.innerHTML +=
