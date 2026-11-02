@@ -1,6 +1,6 @@
 # 🏎️ EzController — Wireless Gyro Racing Wheel (Virtual Xbox 360 Controller)
 
-Turn your phone into a wireless steering wheel and Xbox 360 controller. No app to install — the client is a single web page, and the server creates a **real** virtual gamepad that racing games (Forza, Assetto Corsa, Need for Speed, DiRT, BeamNG, etc.) already understand.
+Turn your phone into a wireless steering wheel, MotoGP handlebar, and Xbox 360 controller. No app to install — the client is a single web page, and the server creates a **real** virtual gamepad that racing games (Forza, Assetto Corsa, MotoGP, Ride, Need for Speed, DiRT, BeamNG, etc.) already understand.
 
 Version 2 adds **native Linux support** via the kernel `uinput` API, a background `controller` command, an HTTPS tunnel helper, and a much faster input path. Windows is still supported through the original `vgamepad`/ViGEmBus backend.
 
@@ -12,8 +12,8 @@ Version 2 adds **native Linux support** via the kernel `uinput` API, a backgroun
 * **`controller` command** — starts the server in the background, prints the URL, and returns immediately. Includes `stop`, `restart`, `status`, `logs`, `doctor`, and `tunnel`.
 * **Lower latency** — input changes are sent on the next display frame (`requestAnimationFrame`), WebSocket compression is off, Nagle is disabled, stale frames are not queued, and each frame is applied to the kernel as one batched write.
 * **Crash-safe controls** — a 1-second watchdog releases the throttle/steering if the phone disconnects or the screen locks.
-* **Game presets** — a **Racing** gyro-wheel layout and a **Cozy** layout for Stardew Valley-style 2D games, each with its own labels and mappings. The choice is saved on the phone.
-* **Steering tune panel** — invert, sensitivity, deadzone, and center calibration, saved on the phone.
+* **Game presets** — **Racing**, **MotoGP**, and **Cozy** layouts, each with its own labels, mappings, and saved steering tune. MotoGP adds a sharp bike profile plus gyro throttle/brake for automatic-gearbox play.
+* **Steering tune panel** — invert, sensitivity, deadzone, center calibration, and MotoGP tilt-throttle range/deadzone, saved on the phone.
 * **Better touch handling** — multi-touch, touch cancellation, and a release-all on screen blur/visibility change.
 * **HTTPS helper** — `controller tunnel install` downloads `cloudflared`, then `controller up` starts the server and a quick HTTPS tunnel. This is the reliable way to get gyroscope permission on mobile browsers.
 
@@ -159,7 +159,7 @@ controller doctor
 
 There is no artificial delay anywhere in the input path:
 
-1. **Phone → browser:** touch and gyro events update in-memory state immediately. Sends are coalesced into the **next animation frame**, so a 120 Hz phone can send at 120 Hz and multiple events in the same frame do not queue up. A 10 Hz heartbeat keeps held buttons alive when the gyro is still.
+1. **Phone → browser:** touch and gyro events update in-memory state immediately. Normally sends are coalesced into the **next animation frame**; **MotoGP sends every motion sample immediately** so lean, throttle, and brake react without waiting for the frame. A 10 Hz heartbeat keeps held buttons alive when the gyro is still.
 2. **Browser → server:** the WebSocket uses `TCP_NODELAY`; per-message compression is disabled; `max_queue=1` and `write_limit=0` prevent stale frames from piling up. Reconnects retry in 250 ms (backing off to 2 s).
 3. **Server:** one JSON parse, one normalised state, and **one batched `write()`** to `/dev/uinput` per frame, ending in a single `SYN_REPORT`. Only changed axes/buttons are written.
 4. **Kernel/game:** the virtual device advertises the exact Xbox 360 identity (`045e:028e`, "Microsoft X-Box 360 pad"), so SDL/Steam/Proton/native games use the standard xpad mapping. Sticks are ±32767, triggers are 0–255.
@@ -173,6 +173,27 @@ The old 4.3-second boot animation is gone; the overlay now clears in about 0.3 s
 ---
 
 ## 🎮 Controls
+
+### MotoGP preset
+
+Built for **automatic gearbox** bike racing. The shift buttons are removed and the brake/throttle surfaces are enlarged.
+
+| Phone control | Xbox 360 | In MotoGP |
+| --- | --- | --- |
+| Rotate/tilt phone left-right | Left stick X | Lean / steer |
+| Tilt phone forward | Right trigger (analog) | Gyro throttle |
+| Pull/tilt phone back | Left trigger (analog) | Gyro front brake |
+| **THROTTLE** (right trigger) | Right trigger | Manual throttle override |
+| **FRONT BRAKE** (left trigger) | Left trigger | Manual front-brake override |
+| **REAR BRAKE** (centre) / A | A | Rear brake |
+| **B** | B | Tuck |
+| **X / Y** | X / Y | Game actions |
+| Right thumbstick | Right stick | Camera |
+| D-pad / View / Menu / Guide | D-pad / Back / Start / Guide | Menus |
+
+Gyro throttle and brake use the phone's **pitch** axis, which is independent of the left/right lean axis, so leaning does not add throttle. Use **TILT RANGE**, **TILT DEADZONE**, and **INVERT TILT** in **⚙ SETTINGS**. The triggers remain as analog overrides — whichever input is stronger wins.
+
+The MotoGP tune is separate from the Racing tune: **6° lean to full lock**, **0.4° lean deadzone**, **14° tilt for full throttle/brake**, and **1.2° tilt deadzone** by default. Its lean, throttle, and brake samples are sent immediately instead of waiting for the next animation frame.
 
 ### Racing preset
 
@@ -195,6 +216,7 @@ Tap **PRESET: …** (or **⚙ SETTINGS**) in the top-right HUD and choose a layo
 | Preset | Best for | Left stick | Triggers | Bumpers | Extra |
 | --- | --- | --- | --- | --- | --- |
 | **Racing** | Forza, Assetto Corsa, DiRT, BeamNG | Gyro tilt steers | Gas / brake | Gear − / + | E-BRAKE, RPM HUD |
+| **MotoGP** | MotoGP, Ride, SBK, automatic gearbox | Gyro lean (sharp 6°) | Gyro tilt throttle / brake + trigger overrides | Hidden | AUTO gearbox, rear brake, tilt tune |
 | **Cozy** | Stardew Valley, 2D games | On-screen thumbstick, full X/Y | Switch item | Shift toolbar | No gyro, no e-brake |
 
 Cozy uses the space freed by hiding the D-pad and Guide button to make the **left/right sticks, ABXY face buttons, triggers, and bumpers larger** — the controls you touch constantly in Stardew. The sticks also scale their throw with their on-screen size.
@@ -217,15 +239,18 @@ The Cozy **LT/RT item** and **LB/RB toolbar** buttons are flat, clicky buttons w
 
 ### Steering tune panel
 
-Tap **⚙ SETTINGS** in the top-right HUD (the steering controls are shown in the Racing preset):
+Tap **⚙ SETTINGS** in the top-right HUD. Racing and MotoGP each keep their own tune:
 
-* **INVERT** — flip steering direction if your phone is mounted the other way.
-* **SENSITIVITY** — degrees of tilt for full lock (default 10°).
-* **DEADZONE** — center deadzone (default 1.2°).
-* **CALIBRATE CENTER** — set the current tilt as straight ahead.
+* **INVERT** — flip steering/lean direction if your phone is mounted the other way.
+* **SENSITIVITY** — degrees of tilt for full lock (Racing default 10°, MotoGP default 6°).
+* **DEADZONE** — center deadzone (Racing default 1.2°, MotoGP default 0.4°).
+* **TILT RANGE** (MotoGP) — forward/back tilt for full throttle or brake (default 14°).
+* **TILT DEADZONE** (MotoGP) — ignore small pitch changes (default 1.2°).
+* **INVERT TILT** (MotoGP) — swap gyro throttle and brake if the phone is held the other way.
+* **CALIBRATE CENTER** — set the current lean (and MotoGP pitch) as neutral.
 * **RESET DEFAULTS**.
 
-Settings are stored in `localStorage` on the phone.
+Settings are stored in `localStorage` on the phone (`ezc.settings` for Racing, `ezc.bike` for MotoGP).
 
 ---
 
@@ -309,14 +334,14 @@ Open **⚙ SETTINGS** and read the **GYRO** line — it tells you what is wrong:
 
 | GYRO line | Fix |
 | --- | --- |
-| `OFF IN COZY PRESET` | Switch the preset to **🏎️ RACING**. Cozy uses the touch left stick and intentionally ignores the gyro. |
+| `OFF IN COZY PRESET` | Switch the preset to **🏎️ RACING** or **🏍️ MOTOGP**. Cozy uses the touch left stick and intentionally ignores the gyro. |
 | `NEEDS HTTPS` / `BLOCKED` | Open the **https://** URL from `controller up`. Mobile browsers block motion sensors on plain `http://` LAN addresses. |
 | `PERMISSION DENIED` | Allow Motion & Orientation Access for the browser, then reload and tap **SYS.IGNITION** again. On iOS: Settings → Safari → Motion & Orientation Access. |
 | `NO EVENTS` | The browser is not delivering sensor data. Try Chrome/Safari over HTTPS, and make sure the phone is not in a low-power/battery-saver mode. |
-| `LIVE · GRAVITY …` | Sensors are working. Steering auto-centers on the first sample; tap **CALIBRATE CENTER** while holding your normal driving position if it drifts. |
-| `LIVE (FALLBACK) · β … γ …` | Motion permission was denied, so the less stable orientation fallback is in use. Reload over HTTPS and allow **both** Motion & Orientation prompts. |
+| `LIVE · GRAVITY …` / `LIVE · THR … BRK …` | Sensors are working. Steering/lean auto-centers on the first sample; tap **CALIBRATE CENTER** while holding your normal driving position if it drifts. |
+| `LIVE (FALLBACK) · β … γ …` / `FALLBACK · ALLOW MOTION FOR TILT THROTTLE` | Motion permission was denied, so the less stable orientation fallback is in use. Reload over HTTPS and allow **both** Motion & Orientation prompts. MotoGP cannot use gyro throttle/brake without motion access. |
 
-Steering is derived from the **gravity vector**, not raw Euler angles. That avoids the ±90° gimbal-lock flip you get when holding the phone upright. Hold the phone upright in landscape and rotate it like a steering wheel. If left and right are reversed, tick **INVERT**.
+Steering and MotoGP throttle/brake are derived from the **gravity vector**, not raw Euler angles. That avoids the ±90° gimbal-lock flip you get when holding the phone upright. Hold the phone upright in landscape and rotate it like a steering wheel. If left and right are reversed, tick **INVERT**. If MotoGP accelerates when you pull back, tick **INVERT TILT**.
 
 Quick tunnel reminder:
 

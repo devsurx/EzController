@@ -161,9 +161,12 @@
         #preset-btn { cursor: pointer; color: #00f3ff; border-color: rgba(0,243,255,0.45) !important; }
         #preset-btn.active { background: rgba(0,243,255,0.15); }
 
-        .cozy-only { display: none !important; }
-        body.preset-cozy .cozy-only { display: inline-block !important; }
-        body.preset-cozy .racing-only { display: none !important; }
+        .cozy-only, .bike-only { display: none !important; }
+        body.preset-cozy .cozy-only,
+        body.preset-motogp .bike-only { display: inline-block !important; }
+        body.preset-cozy .racing-only,
+        body.preset-cozy .car-only,
+        body.preset-motogp .car-only { display: none !important; }
         body.preset-cozy #rpm-container { visibility: hidden; }
         body.preset-cozy #steerVal { font-size: 16px; }
 
@@ -229,6 +232,25 @@
             box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.9),
                         0 0 18px rgba(0, 243, 255, 0.35);
         }
+
+        /* MotoGP: automatic gearbox, so the shift buttons are removed and the
+           remaining brake / throttle / rear-brake surfaces get bigger. */
+        body.preset-motogp #lb,
+        body.preset-motogp #rb { display: none !important; }
+        body.preset-motogp .trigger {
+            width: clamp(130px, 17vw, 180px);
+            height: clamp(86px, 11vh, 112px);
+            font-size: clamp(14px, 1.9vw, 18px);
+            padding-bottom: 16px;
+        }
+        body.preset-motogp #ebrake-btn {
+            width: clamp(160px, 20vw, 215px);
+            height: clamp(58px, 7vh, 72px);
+            font-size: clamp(16px, 2.1vw, 21px);
+        }
+
+        .bike-tune { display: none !important; }
+        body.preset-motogp .bike-tune { display: flex !important; }
 
         #telemetry-dash {
             width: 300px; height: 50px; background: rgba(5, 8, 14, 0.85);
@@ -359,15 +381,19 @@
     <div class="tune-section-title">GAME PRESET</div>
     <div id="preset-options">
         <button class="preset-opt" data-preset="racing" aria-pressed="true">🏎️ RACING<small>Gyro wheel</small></button>
+        <button class="preset-opt" data-preset="motogp" aria-pressed="false">🏍️ MOTOGP<small>Gyro lean</small></button>
         <button class="preset-opt" data-preset="cozy" aria-pressed="false">🌾 COZY<small>Stardew / 2D</small></button>
     </div>
     <div id="preset-help"></div>
     <div id="gyro-status">GYRO: WAITING</div>
 
-    <div class="tune-section-title racing-only">STEERING TUNE</div>
+    <div class="tune-section-title racing-only" id="tune-steer-title">STEERING TUNE</div>
     <label class="tune-row racing-only"><span>INVERT</span><input type="checkbox" id="tune-invert"></label>
     <label class="tune-row racing-only"><span>SENSITIVITY</span><input type="range" id="tune-sens" min="4" max="30" step="1"><b id="tune-sens-val">10°</b></label>
     <label class="tune-row racing-only"><span>DEADZONE</span><input type="range" id="tune-dz" min="0" max="8" step="0.1"><b id="tune-dz-val">1.2°</b></label>
+    <label class="tune-row bike-tune"><span>TILT RANGE</span><input type="range" id="tune-pitch" min="6" max="30" step="1"><b id="tune-pitch-val">14°</b></label>
+    <label class="tune-row bike-tune"><span>TILT DEADZONE</span><input type="range" id="tune-pitch-dz" min="0" max="6" step="0.1"><b id="tune-pitch-dz-val">1.2°</b></label>
+    <label class="tune-row bike-tune"><span>INVERT TILT</span><input type="checkbox" id="tune-pitch-invert"></label>
     <button id="tune-cal" class="racing-only">CALIBRATE CENTER</button>
     <button id="tune-reset" class="racing-only">RESET DEFAULTS</button>
     <button id="tune-close">CLOSE</button>
@@ -379,8 +405,11 @@
         <div id="rpm-container"><div id="rpm-fill"></div></div>
         <div id="telemetry-dash-container">
             <div class="side-hud">
-                <span class="racing-only">ABS: STNDBY</span>
-                <span class="racing-only">TCS: ACTIVE</span>
+                <span class="car-only">ABS: STNDBY</span>
+                <span class="car-only">TCS: ACTIVE</span>
+                <span class="bike-only">AUTO: ON</span>
+                <span class="bike-only">LEAN: GYRO</span>
+                <span class="bike-only">TCS: RACE</span>
                 <span class="cozy-only">A: ACTION</span>
                 <span class="cozy-only">X: TOOL</span>
             </div>
@@ -397,8 +426,10 @@
             </div>
             
             <div class="side-hud">
-                <span class="racing-only">OIL: 212°F</span>
-                <span class="racing-only">BST: 14 PSI</span>
+                <span class="car-only">OIL: 212°F</span>
+                <span class="car-only">BST: 14 PSI</span>
+                <span class="bike-only">A: REAR BRAKE</span>
+                <span class="bike-only">B: TUCK</span>
                 <span class="cozy-only">B: CANCEL</span>
                 <span class="cozy-only">Y: CRAFT</span>
                 <span id="preset-btn" role="button" aria-label="Game preset">PRESET: RACING</span>
@@ -486,32 +517,71 @@
         curve: 1.0,
         deadzone: 1.2
     };
-    const settings = { ...DEFAULTS };
+    // Bike steering is deliberately tighter than the car profile: less tilt to
+    // full lock, almost no deadzone, and a slightly progressive curve.
+    const BIKE_DEFAULTS = {
+        invertSteering: false,
+        centerOffset: 0.0,
+        maxTilt: 6.0,
+        curve: 0.9,
+        deadzone: 0.4,
+        pitchCenter: 0.0,
+        pitchCentered: false,
+        pitchRange: 14.0,
+        pitchDeadzone: 1.2,
+        pitchInvert: false
+    };
 
-    try {
-        const saved = JSON.parse(localStorage.getItem("ezc.settings") || "{}");
-        if (saved && typeof saved === "object") {
-            settings.invertSteering = !!saved.invertSteering;
-            settings.centerOffset = number(saved.centerOffset, 0);
-            settings.maxTilt = clamp(number(saved.maxTilt, 10), 4, 30);
-            settings.curve = clamp(number(saved.curve, 1), 0.5, 2);
-            settings.deadzone = clamp(number(saved.deadzone, 1.2), 0, 8);
+    function loadTune(raw, defaults) {
+        const tune = { ...defaults };
+        if (raw && typeof raw === "object") {
+            tune.invertSteering = !!raw.invertSteering;
+            tune.centerOffset = number(raw.centerOffset, defaults.centerOffset);
+            tune.maxTilt = clamp(number(raw.maxTilt, defaults.maxTilt), 4, 30);
+            tune.curve = clamp(number(raw.curve, defaults.curve), 0.5, 2);
+            tune.deadzone = clamp(number(raw.deadzone, defaults.deadzone), 0, 8);
         }
-    } catch (e) {}
+        return tune;
+    }
+
+    let savedTune = {};
+    let savedBike = {};
+    try { savedTune = JSON.parse(localStorage.getItem("ezc.settings") || "{}"); } catch (e) {}
+    try { savedBike = JSON.parse(localStorage.getItem("ezc.bike") || "{}"); } catch (e) {}
+    if (!savedTune || typeof savedTune !== "object") savedTune = {};
+    if (!savedBike || typeof savedBike !== "object") savedBike = {};
+    const settings = loadTune(savedTune, DEFAULTS);
+    const bikeSettings = loadTune(savedBike, BIKE_DEFAULTS);
+    bikeSettings.pitchCenter = number(savedBike.pitchCenter, BIKE_DEFAULTS.pitchCenter);
+    bikeSettings.pitchCentered = !!savedBike.pitchCentered;
+    bikeSettings.pitchRange = clamp(number(savedBike.pitchRange, BIKE_DEFAULTS.pitchRange), 6, 30);
+    bikeSettings.pitchDeadzone = clamp(number(savedBike.pitchDeadzone, BIKE_DEFAULTS.pitchDeadzone), 0, 6);
+    bikeSettings.pitchInvert = !!savedBike.pitchInvert;
 
     // Game presets change the on-screen labels and which control surfaces drive
-    // the pad. Racing uses gyro steering; Cozy drives the full left stick and
-    // is mapped for Stardew Valley / 2D games.
+    // the pad. Racing and MotoGP use gyro steering; Cozy drives the full left
+    // stick and is mapped for Stardew Valley / 2D games.
     const PRESETS = {
         racing: {
             name: "RACING",
             help: "Tilt to steer · LT/RT gas & brake · B handbrake · LB/RB gears",
-            labels: { lt: "BRAKE", rt: "GAS", lb: "GEAR −", rb: "GEAR +" }
+            labels: { lt: "BRAKE", rt: "GAS", lb: "GEAR −", rb: "GEAR +" },
+            ebrake: "E-BRAKE",
+            gyro: true
+        },
+        motogp: {
+            name: "MOTOGP",
+            help: "AUTO gearbox · Tilt to lean · Tilt forward/back for gyro throttle/brake · A rear brake · B tuck",
+            labels: { lt: "FRONT BRAKE", rt: "THROTTLE", lb: "GEAR −", rb: "GEAR +" },
+            ebrake: "REAR BRAKE",
+            gyro: true
         },
         cozy: {
             name: "COZY",
             help: "Left stick move · A action · X tool · Y craft · B cancel · LT/RT item · LB/RB toolbar",
-            labels: { lt: "ITEM ◀", rt: "ITEM ▶", lb: "TOOLBAR ◀", rb: "TOOLBAR ▶" }
+            labels: { lt: "ITEM ◀", rt: "ITEM ▶", lb: "TOOLBAR ◀", rb: "TOOLBAR ▶" },
+            ebrake: "E-BRAKE",
+            gyro: false
         }
     };
 
@@ -521,6 +591,11 @@
         if (PRESETS[savedPreset]) currentPreset = savedPreset;
     } catch (e) {}
 
+    // MotoGP keeps its own sharp tune so switching presets never dilutes it.
+    function activeTune() {
+        return currentPreset === "motogp" ? bikeSettings : settings;
+    }
+
     let ws = null;
     let isConnected = false;
     let reconnectTimer = null;
@@ -529,11 +604,14 @@
     let sensorsStarted = false;
     let wakeLock = null;
     let lastRawTilt = null;
+    let lastPitch = null;
     let inputGeneration = 0;
     let gyroEvents = 0;
     let gyroDenied = false;
     let motionSeen = false;
     let lastGyroUi = 0;
+    let gyroThrottle = 0;
+    let gyroBrake = 0;
 
     const leftStickCap = $("left-stick-cap");
     const rightStickCap = $("right-stick-cap");
@@ -545,7 +623,10 @@
     const activeSources = new Map();
 
     function saveSettings() {
-        try { localStorage.setItem("ezc.settings", JSON.stringify(settings)); } catch (e) {}
+        try {
+            localStorage.setItem("ezc.settings", JSON.stringify(settings));
+            localStorage.setItem("ezc.bike", JSON.stringify(bikeSettings));
+        } catch (e) {}
     }
 
     // ---- output: change-driven, coalesced to one send per display frame ----
@@ -652,32 +733,78 @@
         return angle;
     }
 
-    function applySteering(raw) {
-        let tilt = raw - settings.centerOffset;
+    function gravityPitch(event) {
+        const g = event.accelerationIncludingGravity;
+        if (!g || !isNum(g.z) || !isNum(g.x) || !isNum(g.y)) return null;
+        const inPlane = Math.hypot(g.x, g.y);
+        // Near-flat/tabletop: the screen plane no longer defines a useful tilt.
+        if (inPlane < 2.0) return null;
+        // Positive = top of the phone pitched forward/away (screen faces up).
+        return Math.atan2(-g.z, inPlane) * 180 / Math.PI;
+    }
+
+    function applyPitch(pitch) {
+        if (pitch === null) {
+            gyroThrottle = 0;
+            gyroBrake = 0;
+            inputState.throttle = buttonValue("throttle");
+            inputState.brake = buttonValue("brake");
+            return;
+        }
+        const tune = activeTune();
+        // Centre on the first usable sample regardless of hold angle: this
+        // guarantees the bike never starts at partial throttle just because
+        // the phone is held at a comfortable tilt.
+        if (!tune.pitchCentered) {
+            tune.pitchCenter = pitch;
+            tune.pitchCentered = true;
+            saveSettings();
+        }
+
+        let tilt = pitch - tune.pitchCenter;
+        if (tune.pitchInvert) tilt = -tilt;
+
+        const dz = tune.pitchDeadzone;
+        const span = Math.max(1, tune.pitchRange - dz);
+        gyroThrottle = tilt > dz ? clamp((tilt - dz) / span, 0, 1) : 0;
+        gyroBrake = tilt < -dz ? clamp((-tilt - dz) / span, 0, 1) : 0;
+
+        // The triggers remain analog overrides: whichever is stronger wins.
+        inputState.throttle = Math.max(buttonValue("throttle"), gyroThrottle);
+        inputState.brake = Math.max(buttonValue("brake"), gyroBrake);
+    }
+
+    function applySteering(raw, pitch = null) {
+        const tune = activeTune();
+        let tilt = raw - tune.centerOffset;
         // Wrap across ±180 so calibration near ±90/±180 never jumps.
         tilt = ((tilt + 180) % 360 + 360) % 360 - 180;
         // A ~180° offset means an old calibration came from the fallback axis
         // or the other landscape orientation. Recentre instead of pinning the
         // wheel at full lock.
         if (Math.abs(tilt) > 150) {
-            settings.centerOffset = raw;
+            tune.centerOffset = raw;
             saveSettings();
             tilt = 0;
         }
-        if (settings.invertSteering) tilt = -tilt;
+        if (tune.invertSteering) tilt = -tilt;
 
-        if (Math.abs(tilt) < settings.deadzone) tilt = 0;
-        else tilt = Math.sign(tilt) * (Math.abs(tilt) - settings.deadzone);
+        if (Math.abs(tilt) < tune.deadzone) tilt = 0;
+        else tilt = Math.sign(tilt) * (Math.abs(tilt) - tune.deadzone);
 
-        const steering = clamp(tilt / settings.maxTilt, -1, 1);
-        const curved = Math.sign(steering) * Math.pow(Math.abs(steering), settings.curve);
+        const steering = clamp(tilt / tune.maxTilt, -1, 1);
+        const curved = Math.sign(steering) * Math.pow(Math.abs(steering), tune.curve);
 
         inputState.steering = curved;
         inputState.ls_x = curved;
         inputState.ls_y = 0;
         steerDash.innerText = (curved * 90).toFixed(1) + "°";
         if (leftStickCap) leftStickCap.style.transform = `translateX(${curved * 22}px)`;
-        scheduleSend();
+
+        if (currentPreset === "motogp") applyPitch(pitch);
+        // Bikes send every sensor sample instead of waiting for the next
+        // animation frame; the JSON path has no smoothing or queueing.
+        scheduleSend(currentPreset === "motogp");
     }
 
     function onOrientation(event) {
@@ -688,44 +815,76 @@
         lastRawTilt = raw;
 
         // Cozy preset uses the touch left stick, not the gyro.
-        if (currentPreset !== "racing") return;
+        if (!PRESETS[currentPreset].gyro) return;
 
         const now = performance.now();
         if (now - lastGyroUi > 120) {
             lastGyroUi = now;
-            const beta = isNum(event.beta) ? event.beta.toFixed(0) : "--";
-            const gamma = isNum(event.gamma) ? event.gamma.toFixed(0) : "--";
-            setGyroStatus("GYRO: LIVE (FALLBACK) · \u03b2 " + beta + "\u00b0 \u03b3 " + gamma + "\u00b0", "#ffcc00");
+            if (currentPreset === "motogp") {
+                setGyroStatus("GYRO: FALLBACK \u00b7 ALLOW MOTION FOR TILT THROTTLE", "#ffcc00");
+            } else {
+                const beta = isNum(event.beta) ? event.beta.toFixed(0) : "--";
+                const gamma = isNum(event.gamma) ? event.gamma.toFixed(0) : "--";
+                setGyroStatus("GYRO: LIVE (FALLBACK) \u00b7 \u03b2 " + beta + "\u00b0 \u03b3 " + gamma + "\u00b0", "#ffcc00");
+            }
         }
-        applySteering(raw);
+        applySteering(raw, null);
     }
 
     function onMotion(event) {
         const raw = gravityAngle(event);
-        if (raw === null) return;
+        if (raw === null) {
+            // Phone flat / no usable gravity angle: never leave gyro throttle
+            // or brake pinned from the last valid sample.
+            if (currentPreset === "motogp" && (gyroThrottle || gyroBrake)) {
+                gyroThrottle = 0;
+                gyroBrake = 0;
+                inputState.throttle = buttonValue("throttle");
+                inputState.brake = buttonValue("brake");
+                scheduleSend(true);
+            }
+            return;
+        }
+        const pitch = gravityPitch(event);
         motionSeen = true;
         lastRawTilt = raw;
+        if (pitch !== null) lastPitch = pitch;
         gyroEvents++;
+
+        if (!PRESETS[currentPreset].gyro) return;
 
         // Gravity's neutral angle is around ±90° in landscape. If the user has
         // never calibrated, take the first sample as centre so the wheel does
         // not start pinned at full lock.
-        if (settings.centerOffset === 0 && Math.abs(raw) > 30) {
-            settings.centerOffset = raw;
+        const tune = activeTune();
+        if (tune.centerOffset === 0 && Math.abs(raw) > 30) {
+            tune.centerOffset = raw;
             saveSettings();
         }
 
-        if (currentPreset !== "racing") return;
+        applySteering(raw, pitch);
 
         const now = performance.now();
         if (now - lastGyroUi > 120) {
             lastGyroUi = now;
-            setGyroStatus("GYRO: LIVE · GRAVITY " + raw.toFixed(0) + "\u00b0", "#00ff66");
+            if (currentPreset === "motogp") {
+                setGyroStatus(
+                    "GYRO: LIVE \u00b7 THR " + Math.round(gyroThrottle * 100) +
+                    "% \u00b7 BRK " + Math.round(gyroBrake * 100) + "%",
+                    "#00ff66"
+                );
+            } else {
+                setGyroStatus("GYRO: LIVE \u00b7 GRAVITY " + raw.toFixed(0) + "\u00b0", "#00ff66");
+            }
         }
-        applySteering(raw);
     }
 
     // ---- buttons (multi-touch safe, handles cancellation) ----
+    function buttonValue(key) {
+        const sources = activeSources.get(key);
+        return sources && sources.size > 0 ? 1 : 0;
+    }
+
     function setButton(key, source, pressed) {
         let sources = activeSources.get(key);
         if (!sources) {
@@ -734,7 +893,13 @@
         }
         if (pressed) sources.add(source);
         else sources.delete(source);
-        inputState[key] = sources.size > 0 ? 1 : 0;
+        if (key === "throttle") {
+            inputState.throttle = Math.max(sources.size > 0 ? 1 : 0, gyroThrottle);
+        } else if (key === "brake") {
+            inputState.brake = Math.max(sources.size > 0 ? 1 : 0, gyroBrake);
+        } else {
+            inputState[key] = sources.size > 0 ? 1 : 0;
+        }
     }
 
     // Analog trigger axes are polled, not queued like digital buttons: a tap
@@ -765,7 +930,7 @@
             pressedAt = performance.now();
             setButton(key, id, true);
             el.classList.add("active");
-            if (id === "rt") setRedline(currentPreset === "racing");
+            if (id === "rt") setRedline(currentPreset === "racing" || currentPreset === "motogp");
             if (currentPreset === "cozy" &&
                 (id === "lt" || id === "rt" || id === "lb" || id === "rb") &&
                 navigator.vibrate) {
@@ -1026,6 +1191,8 @@
     function releaseAll() {
         inputGeneration++;
         activeSources.clear();
+        gyroThrottle = 0;
+        gyroBrake = 0;
         for (const key of BUTTON_KEYS) inputState[key] = 0;
         inputState.throttle = 0;
         inputState.brake = 0;
@@ -1084,17 +1251,23 @@
         currentPreset = name;
         const preset = PRESETS[name];
         const cozy = name === "cozy";
+        const motogp = name === "motogp";
 
-        document.body.classList.toggle("preset-racing", !cozy);
+        document.body.classList.toggle("preset-racing", name === "racing");
+        document.body.classList.toggle("preset-motogp", motogp);
         document.body.classList.toggle("preset-cozy", cozy);
 
         for (const [id, label] of Object.entries(preset.labels)) {
             const el = $(id);
             if (el) el.innerText = label;
         }
+        const ebrake = $("ebrake-btn");
+        if (ebrake) ebrake.innerText = preset.ebrake || "E-BRAKE";
 
         const steerLabel = $("steer-label");
-        if (steerLabel) steerLabel.innerText = cozy ? "MOVE" : "STEERING";
+        if (steerLabel) steerLabel.innerText = cozy ? "MOVE" : motogp ? "LEAN" : "STEERING";
+        const tuneTitle = $("tune-steer-title");
+        if (tuneTitle) tuneTitle.innerText = motogp ? "LEAN & TILT TUNE" : "STEERING TUNE";
         const presetButton = $("preset-btn");
         if (presetButton) presetButton.innerText = "PRESET: " + preset.name;
         if (leftStickCap) {
@@ -1114,6 +1287,7 @@
         }
 
         updatePresetUI();
+        updateTuneUI();
         try { localStorage.setItem("ezc.preset", name); } catch (e) {}
         // releaseAll() already sent a neutral frame when it ran.
         if (!options.silent && options.release === false) scheduleSend(true);
@@ -1121,16 +1295,28 @@
 
     // ---- steering tuning UI ----
     function updateTuneUI() {
+        const tune = activeTune();
         const invert = $("tune-invert");
         const sens = $("tune-sens");
         const dz = $("tune-dz");
-        if (invert) invert.checked = settings.invertSteering;
-        if (sens) sens.value = String(settings.maxTilt);
-        if (dz) dz.value = String(settings.deadzone);
+        if (invert) invert.checked = tune.invertSteering;
+        if (sens) sens.value = String(tune.maxTilt);
+        if (dz) dz.value = String(tune.deadzone);
         const sensVal = $("tune-sens-val");
         const dzVal = $("tune-dz-val");
-        if (sensVal) sensVal.innerText = settings.maxTilt.toFixed(0) + "°";
-        if (dzVal) dzVal.innerText = settings.deadzone.toFixed(1) + "°";
+        if (sensVal) sensVal.innerText = tune.maxTilt.toFixed(0) + "°";
+        if (dzVal) dzVal.innerText = tune.deadzone.toFixed(1) + "°";
+
+        const pitch = $("tune-pitch");
+        const pitchDz = $("tune-pitch-dz");
+        const pitchInvert = $("tune-pitch-invert");
+        if (pitch) pitch.value = String(bikeSettings.pitchRange);
+        if (pitchDz) pitchDz.value = String(bikeSettings.pitchDeadzone);
+        if (pitchInvert) pitchInvert.checked = bikeSettings.pitchInvert;
+        const pitchVal = $("tune-pitch-val");
+        const pitchDzVal = $("tune-pitch-dz-val");
+        if (pitchVal) pitchVal.innerText = bikeSettings.pitchRange.toFixed(0) + "°";
+        if (pitchDzVal) pitchDzVal.innerText = bikeSettings.pitchDeadzone.toFixed(1) + "°";
     }
 
     function openTune(open) {
@@ -1180,35 +1366,57 @@
         $("tune-close").addEventListener("click", () => openTune(false));
 
         $("tune-invert").addEventListener("change", (event) => {
-            settings.invertSteering = event.target.checked;
+            activeTune().invertSteering = event.target.checked;
             saveSettings();
         });
 
         $("tune-sens").addEventListener("input", (event) => {
-            settings.maxTilt = clamp(number(event.target.value, 10), 4, 30);
-            $("tune-sens-val").innerText = settings.maxTilt.toFixed(0) + "°";
+            const tune = activeTune();
+            tune.maxTilt = clamp(number(event.target.value, 10), 4, 30);
+            $("tune-sens-val").innerText = tune.maxTilt.toFixed(0) + "°";
             saveSettings();
         });
 
         $("tune-dz").addEventListener("input", (event) => {
-            settings.deadzone = clamp(number(event.target.value, 1.2), 0, 8);
-            $("tune-dz-val").innerText = settings.deadzone.toFixed(1) + "°";
+            const tune = activeTune();
+            tune.deadzone = clamp(number(event.target.value, 1.2), 0, 8);
+            $("tune-dz-val").innerText = tune.deadzone.toFixed(1) + "°";
+            saveSettings();
+        });
+
+        $("tune-pitch").addEventListener("input", (event) => {
+            bikeSettings.pitchRange = clamp(number(event.target.value, 14), 6, 30);
+            $("tune-pitch-val").innerText = bikeSettings.pitchRange.toFixed(0) + "°";
+            saveSettings();
+        });
+
+        $("tune-pitch-dz").addEventListener("input", (event) => {
+            bikeSettings.pitchDeadzone = clamp(number(event.target.value, 1.2), 0, 6);
+            $("tune-pitch-dz-val").innerText = bikeSettings.pitchDeadzone.toFixed(1) + "°";
+            saveSettings();
+        });
+
+        $("tune-pitch-invert").addEventListener("change", (event) => {
+            bikeSettings.pitchInvert = event.target.checked;
             saveSettings();
         });
 
         $("tune-cal").addEventListener("click", () => {
-            if (lastRawTilt === null) {
-                tuneStatus("NO GYRO DATA YET");
+            if (lastRawTilt === null || (currentPreset === "motogp" && lastPitch === null)) {
+                tuneStatus("HOLD PHONE UPRIGHT \u2014 NO GYRO DATA");
                 return;
             }
-            settings.centerOffset = lastRawTilt;
+            activeTune().centerOffset = lastRawTilt;
+            if (currentPreset === "motogp") {
+                bikeSettings.pitchCenter = lastPitch;
+                bikeSettings.pitchCentered = true;
+            }
             saveSettings();
-            tuneStatus("CENTER CALIBRATED");
+            tuneStatus(currentPreset === "motogp" ? "LEAN + TILT CENTERED" : "CENTER CALIBRATED");
         });
 
         $("tune-reset").addEventListener("click", () => {
-            Object.assign(settings, DEFAULTS);
-            settings.centerOffset = 0;
+            Object.assign(activeTune(), currentPreset === "motogp" ? BIKE_DEFAULTS : DEFAULTS);
             saveSettings();
             updateTuneUI();
             tuneStatus("DEFAULTS RESTORED");
@@ -1245,7 +1453,7 @@
         // If the browser silently withholds sensor events, say why instead of
         // leaving the steering readout at 0 forever.
         setTimeout(() => {
-            if (currentPreset !== "racing" || gyroEvents > 0 || gyroDenied) return;
+            if (!PRESETS[currentPreset].gyro || gyroEvents > 0 || gyroDenied) return;
             setGyroStatus(
                 gyroNeedsHttps()
                     ? "GYRO BLOCKED \u2014 OPEN THE HTTPS URL"
@@ -1297,12 +1505,16 @@
         $("initBtn").style.display = "none";
         const terminal = $("boot-terminal");
         terminal.style.display = "block";
+        const bootTune = activeTune();
         terminal.innerText = [
             "> UPLINK SECURE: PORT 5000",
             "> PRESET: " + PRESETS[currentPreset].name,
-            currentPreset === "racing"
-                ? "> GYRO MATRIX: ONLINE / DEADZONE " + settings.deadzone.toFixed(1) + "°"
-                : "> LEFT STICK: ONLINE / TOUCH MOVE",
+            !PRESETS[currentPreset].gyro
+                ? "> LEFT STICK: ONLINE / TOUCH MOVE"
+                : currentPreset === "motogp"
+                    ? "> BIKE MATRIX: AUTO GEARBOX / LEAN " + bootTune.maxTilt.toFixed(0) +
+                      "° / THR " + bikeSettings.pitchRange.toFixed(0) + "°"
+                    : "> GYRO MATRIX: ONLINE / DEADZONE " + bootTune.deadzone.toFixed(1) + "°",
             "> CONNECTION ESTABLISHED."
         ].join("\n");
         terminal.innerHTML +=
